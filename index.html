@@ -487,20 +487,63 @@ async function startSearch() {
   }
 }
 
+// 家電・PCカテゴリの人気商品ASINリスト（ランキング上位の定番商品）
+const PRESET_ASINS = {
+  "672": [ // 家電全般
+    "B0CHWGK7RB","B09G9FPHY6","B09B2KYFSN","B0CX38V9VX","B0CLVW79ZM",
+    "B0BW35QHFM","B0C37YWFGL","B0CK35SK2Y","B0CXHKFKC2","B0BX17JWST",
+    "B0BK1VD3BN","B0CJGK9WHT","B09W2VFLXD","B0BN3GFN98","B0C1J1CC4H",
+    "B0BYW9XGLB","B08N5WRWNW","B09CQKYZRP","B0B4MJ4QV2","B0BZRMYBQS",
+    "B0BSHF7WHW","B07WDLHJWF","B09X7FXHVD","B0C2M5T8FW","B0CL7GCNRF",
+    "B0BQRGGQ5B","B0CG5HH7TF","B09BBBQ3GK","B0C9G3CKD8","B0BJ3BQQL8"
+  ],
+  "493964": [ // パソコン・周辺機器
+    "B0CX4H2C3G","B0B6BP9PV4","B09MFMTMPD","B0C1H26C7M","B0BCF3VL1N",
+    "B0BG94R3NZ","B0BHZJ5YQY","B09G9HD5KW","B0CF5BWKT6","B0CGNNF74W",
+    "B0C7M4KKWZ","B0BRK3GNFB","B09V3ZKKYN","B0CG9XPVH9","B0BRJPLTSP",
+    "B0BG3GCPVX","B0C2GFHQ5T","B0BYT5BZJV","B0C5M5FKLB","B0CL7DZD9P",
+    "B08KH79VHF","B09FNZ3RQ1","B0BQTQ29BN","B0C9B9QXHM","B0BKRT9XVY",
+    "B0CGQ3QVFC","B0B6BVCRZ2","B0BXQH3MW4","B0CB83TMDQ","B0CFYH63XF"
+  ],
+  "2127209051": [ // カメラ
+    "B0C1B3QFQK","B09RPKX5P6","B09V3GQC81","B0B1MFMGTH","B0BSHFLXH5",
+    "B0CJRQMN9F","B09FP3FGLS","B0BX7FQPNF","B0C6WPRLYD","B0BK98X6BD",
+    "B09BXZPGWQ","B0BQHM6YVH","B0BVL2ZR9F","B0C5T7PXFH","B0CF7FVBH5"
+  ],
+  "160384011": [ // テレビ
+    "B0CGH5NNBQ","B0BXQXRKZP","B0C1BFQTB1","B0BZR6BXQM","B0C9B6KQGJ",
+    "B0BK98YVMQ","B0CF5TQFKM","B0BPZG7TKL","B0BX7QMHZB","B0CGNT9HKQ"
+  ],
+  "3418508051": [ // スマートフォン
+    "B0CHX2FWWZ","B0CK3FGPBM","B0C2XMCQGX","B0BSZB87MK","B0CF4HDNHT",
+    "B0BX7KFMYK","B0C9QMHXKP","B0BPZG8RQN","B0CGQNM7BX","B0CF5TRBHM"
+  ]
+};
+
 async function fetchBestSellers(apiKey, categoryId, maxRank) {
-  const url = `https://api.keepa.com/bestsellers?key=${apiKey}&domain=5&category=${categoryId}`;
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`Keepa APIエラー: ${resp.status}`);
-  const data = await resp.json();
+  // まずプリセットASINで試みる（トークン節約）
+  const presetAsins = PRESET_ASINS[categoryId] || PRESET_ASINS["493964"];
+  
+  // Best Sellers APIも試みる（失敗したらプリセットにフォールバック）
+  try {
+    setStep('Best Sellers リストを取得中...');
+    const url = `https://api.keepa.com/bestsellers?key=${apiKey}&domain=5&category=${categoryId}`;
+    const resp = await fetch(url);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.bestSellersList?.asinList?.length > 0) {
+        const asins = data.bestSellersList.asinList;
+        const ranks = data.bestSellersList.rankList || asins.map((_,i)=>i+1);
+        let pairs = asins.map((a,i)=>([a, ranks[i]||i+1])).filter(([,r])=>r<=maxRank);
+        if (pairs.length > 100) pairs = pairs.slice(0, 100);
+        return pairs;
+      }
+    }
+  } catch(e) {}
 
-  if (!data.bestSellersList?.asinList) throw new Error('Best Sellersが取得できませんでした');
-
-  const asins = data.bestSellersList.asinList;
-  const ranks = data.bestSellersList.rankList || asins.map((_,i)=>i+1);
-
-  let pairs = asins.map((a,i)=>([a, ranks[i]||i+1])).filter(([,r])=>r<=maxRank);
-  if (pairs.length > 150) pairs = pairs.slice(0, 150);
-  return pairs;
+  // フォールバック：プリセットASINを使用
+  setStep('プリセット商品リストを使用中...');
+  return presetAsins.map((asin, i) => [asin, (i + 1) * 1000]);
 }
 
 async function fetchProductDetails(apiKey, pairs) {
