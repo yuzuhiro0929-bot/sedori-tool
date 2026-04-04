@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>せどりAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #08080e;
+  --card: #111119;
+  --card2: #18181f;
+  --border: #252535;
+  --cyan: #00e5ff;
+  --orange: #ff6b35;
+  --green: #3ddc84;
+  --red: #ff5252;
+  --text: #eeeef5;
+  --dim: #6a6a90;
+  --radius: 16px;
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans JP', sans-serif;
+  min-height: 100vh;
+  padding-bottom: 40px;
+}
+
+/* Background grid */
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(0,229,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,255,.025) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events:none;
+  z-index:0;
+}
+
+.wrap { max-width: 640px; margin: 0 auto; padding: 0 16px; position: relative; z-index:1; }
+
+/* ── Header ── */
+header {
+  padding: 52px 0 24px;
+  text-align: center;
+}
+.header-icon {
+  width: 64px; height: 64px;
+  background: linear-gradient(135deg, var(--cyan), #0080ff);
+  border-radius: 18px;
+  display: flex; align-items:center; justify-content:center;
+  font-size: 30px;
+  margin: 0 auto 16px;
+  box-shadow: 0 0 32px rgba(0,229,255,.3);
+}
+h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+h1 .c { color: var(--cyan); }
+h1 .o { color: var(--orange); }
+.tagline { font-size: 13px; color: var(--dim); margin-top: 6px; }
+
+/* ── Card ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 14px;
+}
+
+/* ── Form ── */
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 7px;
+}
+input, select {
+  width: 100%;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 15px;
+  padding: 13px 15px;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color .2s;
+}
+input:focus, select:focus { border-color: var(--cyan); }
+input[type=password] { letter-spacing: 3px; }
+input[type=number] { font-family: 'Syne', sans-serif; }
+
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236a6a90' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+}
+
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* ── Button ── */
+.btn {
+  width: 100%;
+  background: var(--cyan);
+  color: #000;
+  border: none;
+  border-radius: 14px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: .4; }
+.btn.secondary {
+  background: transparent;
+  color: var(--cyan);
+  border: 1px solid var(--cyan);
+  font-size: 14px;
+  padding: 13px;
+  margin-top: 10px;
+}
+
+/* ── Loading ── */
+#loadingCard { display:none; text-align:center; padding: 40px 20px; }
+.spinner {
+  width: 44px; height: 44px;
+  border: 3px solid var(--border);
+  border-top-color: var(--cyan);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  margin: 0 auto 18px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-label { font-size: 15px; color: var(--text); margin-bottom: 6px; }
+.loading-step { font-size: 12px; color: var(--cyan); font-family: monospace; }
+
+/* ── Stats ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.stat-tile {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+}
+.stat-tile .label { font-size: 10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--dim); margin-bottom:6px; }
+.stat-tile .value { font-family:'Syne',sans-serif; font-size:22px; font-weight:700; color:var(--cyan); }
+.stat-tile .value.green { color: var(--green); }
+
+/* ── AI Analysis ── */
+.ai-box {
+  background: linear-gradient(135deg, rgba(0,229,255,.07), rgba(0,128,255,.05));
+  border: 1px solid rgba(0,229,255,.25);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.ai-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.ai-dot {
+  width: 8px; height: 8px;
+  background: var(--cyan);
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+.ai-label { font-family:'Syne',sans-serif; font-size:13px; font-weight:700; color:var(--cyan); letter-spacing:1px; }
+.ai-text { font-size: 14px; line-height: 1.75; color: var(--text); white-space: pre-wrap; }
+
+/* ── Product cards ── */
+.product-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: border-color .2s;
+}
+.product-card:active { border-color: var(--cyan); }
+
+.prod-rank {
+  display: inline-block;
+  background: rgba(0,229,255,.12);
+  border: 1px solid rgba(0,229,255,.25);
+  color: var(--cyan);
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+.prod-name {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+.prod-asin { font-family: monospace; font-size: 11px; color: var(--dim); margin-bottom: 12px; }
+
+.price-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.price-tile {
+  background: var(--card2);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.price-tile .plabel { font-size: 10px; color: var(--dim); margin-bottom: 4px; }
+.price-tile .pval { font-family:'Syne',sans-serif; font-size:16px; font-weight:700; }
+.price-tile .pval.amazon { color: var(--cyan); }
+.price-tile .pval.rakuten { color: var(--orange); }
+
+.profit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--card2);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+.profit-label { font-size: 11px; color: var(--dim); }
+.profit-val {
+  font-family: 'Syne', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+}
+.profit-val.pos { color: var(--green); }
+.profit-val.neg { color: var(--red); }
+
+.margin-bar-wrap { margin-bottom: 14px; }
+.margin-bar-bg {
+  height: 5px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.margin-bar-fill { height: 100%; border-radius: 3px; background: var(--green); transition: width .4s ease; }
+.margin-bar-fill.neg { background: var(--red); }
+.margin-meta { display:flex; justify-content:space-between; margin-top:5px; }
+.margin-meta span { font-size:11px; color:var(--dim); }
+.margin-pct { font-family:'Syne',sans-serif; font-weight:700; color:var(--green); font-size:13px; }
+.margin-pct.neg { color: var(--red); }
+
+.prod-links { display: flex; gap: 8px; }
+.prod-link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--dim);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all .2s;
+}
+.prod-link.keepa:active { border-color: var(--orange); color: var(--orange); }
+.prod-link.amz:active { border-color: var(--cyan); color: var(--cyan); }
+
+/* ── Error ── */
+.error-box {
+  background: rgba(255,82,82,.1);
+  border: 1px solid rgba(255,82,82,.3);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 13px;
+  color: #ff8a8a;
+  display: none;
+  margin-top: 12px;
+  line-height: 1.6;
+}
+.error-box.show { display: block; }
+
+/* ── Notice ── */
+.notice {
+  background: rgba(0,229,255,.05);
+  border: 1px solid rgba(0,229,255,.15);
+  border-radius: 12px;
+  padding: 13px 15px;
+  font-size: 12px;
+  color: var(--dim);
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+.notice strong { color: var(--cyan); }
+
+/* ── Empty ── */
+.empty { text-align:center; padding:50px 20px; color:var(--dim); }
+.empty-icon { font-size:44px; margin-bottom:14px; opacity:.5; }
+.empty-title { font-family:'Syne',sans-serif; font-size:17px; color:var(--text); margin-bottom:6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <header>
+    <div class="header-icon">🔍</div>
+    <h1><span class="c">電脳</span><span class="o">せどり</span> AI</h1>
+    <div class="tagline">Keepa × Claude で仕入れ判断をサポート</div>
+  </header>
+
+  <!-- Config -->
+  <div class="card">
+    <div class="card-title">⚙️ 設定</div>
+    <div class="field">
+      <label>Keepa APIキー</label>
+      <input type="password" id="apiKey" placeholder="keepa api key を入力">
+    </div>
+    <div class="field">
+      <label>カテゴリ</label>
+      <select id="category">
+        <option value="672">家電全般</option>
+        <option value="493964">パソコン・周辺機器</option>
+        <option value="2127209051">カメラ</option>
+        <option value="160384011">テレビ・レコーダー</option>
+        <option value="3418508051">スマートフォン</option>
+      </select>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>ランク上限</label>
+        <select id="maxRank">
+          <option value="10000">1万位</option>
+          <option value="20000">2万位</option>
+          <option value="50000" selected>5万位</option>
+          <option value="100000">10万位</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>最低利益率</label>
+        <input type="number" id="minMargin" value="10" min="0" max="50">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>最低利益額(円)</label>
+        <input type="number" id="minProfit" value="500" step="100">
+      </div>
+      <div class="field">
+        <label>仕入れ上限(円)</label>
+        <input type="number" id="maxBuy" value="50000" step="1000">
+      </div>
+    </div>
+    <button class="btn" id="searchBtn" onclick="startSearch()">
+      🔍 リサーチ開始
+    </button>
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <!-- Loading -->
+  <div class="card" id="loadingCard">
+    <div style="text-align:center;padding:20px 0">
+      <div class="spinner"></div>
+      <div class="loading-label">データ取得中...</div>
+      <div class="loading-step" id="loadingStep">Keepa APIに接続中</div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="resultsArea" style="display:none">
+
+    <!-- Stats -->
+    <div class="stats-grid" id="statsGrid"></div>
+
+    <!-- AI Analysis -->
+    <div class="ai-box" id="aiBox" style="display:none">
+      <div class="ai-header">
+        <div class="ai-dot"></div>
+        <div class="ai-label">AI 分析レポート</div>
+      </div>
+      <div class="ai-text" id="aiText">分析中...</div>
+    </div>
+
+    <button class="btn secondary" onclick="runAiAnalysis()" id="aiBtn" style="display:none">
+      ✨ AIで仕入れ戦略を分析する
+    </button>
+
+    <div class="notice">
+      <strong>⚠️ 楽天価格は推定値（Amazon×80%）です。</strong>
+      実際の価格をKeepaや楽天サイトで確認してから仕入れ判断してください。
+    </div>
+
+    <!-- Products -->
+    <div id="productsList"></div>
+  </div>
+
+</div>
+
+<script>
+let cachedResults = [];
+
+async function startSearch() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) { showError('Keepa APIキーを入力してください'); return; }
+
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+  hideError();
+  document.getElementById('loadingCard').style.display = 'block';
+  document.getElementById('resultsArea').style.display = 'none';
+
+  try {
+    const categoryId = document.getElementById('category').value;
+    const maxRank    = parseInt(document.getElementById('maxRank').value);
+    const minMargin  = parseFloat(document.getElementById('minMargin').value);
+    const minProfit  = parseFloat(document.getElementById('minProfit').value);
+    const maxBuy     = parseFloat(document.getElementById('maxBuy').value);
+
+    setStep('Best Sellers リストを取得中...');
+    const asinPairs = await fetchBestSellers(apiKey, categoryId, maxRank);
+
+    setStep(`${asinPairs.length}件の商品詳細を取得中...`);
+    const products = await fetchProductDetails(apiKey, asinPairs);
+
+    setStep('利益計算中...');
+    const results = processProducts(products, { minMargin, minProfit, maxBuy });
+    cachedResults = results;
+
+    renderStats(results);
+    renderProducts(results);
+
+    document.getElementById('aiBtn').style.display = results.length > 0 ? 'flex' : 'none';
+    document.getElementById('aiBox').style.display = 'none';
+    document.getElementById('resultsArea').style.display = 'block';
+
+  } catch(e) {
+    showError(e.message);
+  } finally {
+    document.getElementById('loadingCard').style.display = 'none';
+    btn.disabled = false;
+  }
+}
+
+async function fetchBestSellers(apiKey, categoryId, maxRank) {
+  const url = `https://api.keepa.com/bestsellers?key=${apiKey}&domain=5&category=${categoryId}`;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Keepa APIエラー: ${resp.status}`);
+  const data = await resp.json();
+
+  if (!data.bestSellersList?.asinList) throw new Error('Best Sellersが取得できませんでした');
+
+  const asins = data.bestSellersList.asinList;
+  const ranks = data.bestSellersList.rankList || asins.map((_,i)=>i+1);
+
+  let pairs = asins.map((a,i)=>([a, ranks[i]||i+1])).filter(([,r])=>r<=maxRank);
+  if (pairs.length > 150) pairs = pairs.slice(0, 150);
+  return pairs;
+}
+
+async function fetchProductDetails(apiKey, pairs) {
+  const products = [];
+  const batchSize = 100;
+  for (let i = 0; i < pairs.length; i += batchSize) {
+    const batch = pairs.slice(i, i + batchSize);
+    const asins = batch.map(([a])=>a).join(',');
+    const rankMap = Object.fromEntries(batch);
+    setStep(`商品詳細 ${i+1}〜${Math.min(i+batchSize, pairs.length)}件目...`);
+    const url = `https://api.keepa.com/product?key=${apiKey}&domain=5&asin=${asins}&stats=1&offers=20&history=0`;
+    const resp = await fetch(url);
+    if (!resp.ok) continue;
+    const data = await resp.json();
+    (data.products || []).forEach(p => {
+      p._rank = rankMap[p.asin] || 99999;
+      products.push(p);
+    });
+    if (i + batchSize < pairs.length) await sleep(800);
+  }
+  return products;
+}
+
+function getPrice(p) {
+  const cur = p.stats?.current || [];
+  for (const idx of [0,1,18]) if (cur[idx]>0) return cur[idx];
+  const csv = p.csv?.[0];
+  if (csv) for (let i=csv.length-1;i>=0;i-=2) if (csv[i]>0) return csv[i];
+  return null;
+}
+
+function processProducts(products, { minMargin, minProfit, maxBuy }) {
+  const results = [];
+  for (const p of products) {
+    const raw = getPrice(p);
+    if (!raw || raw < 10000) continue;
+    const amazonPrice = Math.floor(raw / 100);
+    if (amazonPrice < 100) continue;
+    const rakutenPrice = Math.floor(amazonPrice * 0.80);
+    if (rakutenPrice > maxBuy) continue;
+    const refFee = Math.floor(amazonPrice * 0.10);
+    const fbaFee = amazonPrice >= 5000 ? 800 : 500;
+    const profit = amazonPrice - rakutenPrice - refFee - fbaFee;
+    const margin = profit / amazonPrice * 100;
+    if (margin < minMargin || profit < minProfit) continue;
+    results.push({
+      asin: p.asin,
+      title: p.title || '商品名不明',
+      rank: p._rank,
+      amazonPrice, rakutenPrice,
+      profit: Math.round(profit),
+      margin: Math.round(margin * 10) / 10,
+      refFee, fbaFee,
+    });
+  }
+  return results.sort((a,b)=>b.margin-a.margin);
+}
+
+function renderStats(results) {
+  const profitable = results.filter(r=>r.profit>0);
+  const avgMargin = profitable.length
+    ? Math.round(profitable.reduce((s,r)=>s+r.margin,0)/profitable.length*10)/10 : 0;
+  const maxProfit = profitable.length ? Math.max(...profitable.map(r=>r.profit)) : 0;
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-tile"><div class="label">ヒット件数</div><div class="value">${results.length}</div></div>
+    <div class="stat-tile"><div class="label">利益あり</div><div class="value green">${profitable.length}</div></div>
+    <div class="stat-tile"><div class="label">平均利益率</div><div class="value">${avgMargin}%</div></div>
+    <div class="stat-tile"><div class="label">最大利益</div><div class="value">¥${maxProfit.toLocaleString()}</div></div>
+  `;
+}
+
+function renderProducts(results) {
+  const el = document.getElementById('productsList');
+  if (!results.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🔎</div><div class="empty-title">条件に合う商品なし</div><div>フィルタ条件を緩めてみてください</div></div>`;
+    return;
+  }
+  el.innerHTML = results.map(r => {
+    const mw = Math.min(Math.abs(r.margin)*2, 100);
+    const negCls = r.profit < 0 ? 'neg' : '';
+    return `
+    <div class="product-card">
+      <div class="prod-rank">#${r.rank.toLocaleString()} 位</div>
+      <div class="prod-name">${r.title.substring(0,60)}${r.title.length>60?'…':''}</div>
+      <div class="prod-asin">ASIN: ${r.asin}</div>
+      <div class="price-row">
+        <div class="price-tile">
+          <div class="plabel">Amazon 販売価格</div>
+          <div class="pval amazon">¥${r.amazonPrice.toLocaleString()}</div>
+        </div>
+        <div class="price-tile">
+          <div class="plabel">楽天 仕入れ価格</div>
+          <div class="pval rakuten">¥${r.rakutenPrice.toLocaleString()}</div>
+        </div>
+      </div>
+      <div class="profit-row">
+        <div class="profit-label">利益額（手数料込み）</div>
+        <div class="profit-val ${r.profit>=0?'pos':'neg'}">${r.profit>=0?'+':''}¥${r.profit.toLocaleString()}</div>
+      </div>
+      <div class="margin-bar-wrap">
+        <div class="margin-bar-bg">
+          <div class="margin-bar-fill ${negCls}" style="width:${mw}%"></div>
+        </div>
+        <div class="margin-meta">
+          <span>手数料 ¥${(r.refFee+r.fbaFee).toLocaleString()}</span>
+          <span class="margin-pct ${negCls}">${r.margin}%</span>
+        </div>
+      </div>
+      <div class="prod-links">
+        <a class="prod-link keepa" href="https://keepa.com/#!product/5-${r.asin}" target="_blank">📈 Keepa</a>
+        <a class="prod-link amz" href="https://www.amazon.co.jp/dp/${r.asin}" target="_blank">🛒 Amazon</a>
+        <a class="prod-link" href="https://search.rakuten.co.jp/search/mall/${encodeURIComponent(r.title.substring(0,30))}" target="_blank">🔴 楽天</a>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function runAiAnalysis() {
+  if (!cachedResults.length) return;
+  const btn = document.getElementById('aiBtn');
+  btn.disabled = true;
+  btn.textContent = '✨ AI分析中...';
+
+  const box = document.getElementById('aiBox');
+  const textEl = document.getElementById('aiText');
+  box.style.display = 'block';
+  textEl.textContent = '分析中...';
+
+  const top10 = cachedResults.slice(0, 10).map(r =>
+    `・${r.title.substring(0,40)} / ランク:${r.rank}位 / Amazon:¥${r.amazonPrice.toLocaleString()} / 楽天仕入:¥${r.rakutenPrice.toLocaleString()} / 利益:¥${r.profit.toLocaleString()} (${r.margin}%)`
+  ).join('\n');
+
+  const prompt = `あなたは電脳せどりの専門コンサルタントです。以下はKeepa APIで取得したAmazon家電カテゴリの仕入れ候補リストです。
+
+【候補商品（上位10件）】
+${top10}
+
+※楽天仕入れ価格はAmazon価格×80%の推定値です。
+
+以下の観点で日本語で分析してください（300字以内で簡潔に）：
+1. 特に注目すべき商品と理由
+2. リスクや注意点
+3. 今すぐ動くべき仕入れ戦略の一言アドバイス`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await resp.json();
+    const text = data.content?.map(c=>c.text||'').join('') || 'AIの応答が取得できませんでした';
+    textEl.textContent = text;
+  } catch(e) {
+    textEl.textContent = 'AI分析に失敗しました: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✨ AIで仕入れ戦略を分析する';
+    box.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+}
+
+function setStep(msg) { document.getElementById('loadingStep').textContent = msg; }
+function showError(msg) { const e=document.getElementById('errorBox'); e.textContent=msg; e.classList.add('show'); }
+function hideError() { document.getElementById('errorBox').classList.remove('show'); }
+function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+</script>
+</body>
+</html>
