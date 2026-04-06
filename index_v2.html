@@ -342,9 +342,14 @@ async function fetchRakutenPrice(appId, title, amazonPrice, janCode) {
 }
 
 function getAmazonPrice(p) {
+  // stats.current: 全インデックスをチェック（0=Amazon直販, 1=新品最安, 7=FBA新品, 18=買い物かご等）
   const cur = p.stats?.current || [];
-  for (const i of [0,1,18]) if (cur[i] > 0) return cur[i];
-  const csv = p.csv?.[0];
+  for (const i of [18, 1, 0, 7, 11]) if (cur[i] && cur[i] > 0) return cur[i];
+  // stats.avg30（直近30日平均）をフォールバックに
+  const avg = p.stats?.avg30 || [];
+  for (const i of [18, 1, 0, 7]) if (avg[i] && avg[i] > 0) return avg[i];
+  // CSVヒストリ（history=1の場合）
+  const csv = p.csv?.[1] || p.csv?.[0];
   if (csv) for (let i = csv.length-1; i >= 0; i -= 2) if (csv[i] > 0) return csv[i];
   return null;
 }
@@ -353,12 +358,13 @@ async function processProducts(products, opts, rakutenAppId) {
   const { minMargin, minProfit, maxBuy } = opts;
   const results = [];
   const total = products.length;
+  let noPriceCount = 0;
   for (let idx = 0; idx < total; idx++) {
     const p = products[idx];
     const raw = getAmazonPrice(p);
-    if (!raw || raw < 10000) continue;
+    if (!raw || raw < 10000) { noPriceCount++; continue; }
     const amazonPrice = Math.floor(raw / 100);
-    if (amazonPrice < 500) continue;
+    if (amazonPrice < 500) { noPriceCount++; continue; }
 
     setStep(`価格照合中... ${idx+1}/${total}`, Math.round(45 + (idx/total)*45));
 
@@ -387,6 +393,9 @@ async function processProducts(products, opts, rakutenAppId) {
       margin: Math.round(margin * 10) / 10,
       refFee, fbaFee, rakutenMethod, rakutenShipping,
     });
+  }
+  if (noPriceCount === total && total > 0) {
+    throw new Error(`${total}件取得しましたが全商品の価格データが空でした。Keepa APIキーのプランがデータアクセスに対応しているか確認してください。`);
   }
   return results;
 }
