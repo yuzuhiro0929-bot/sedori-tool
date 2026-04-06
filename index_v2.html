@@ -430,12 +430,13 @@ async function processProducts(products, opts, rakutenAppId) {
 
     let rakutenPrice, rakutenIsReal = false, rakutenMethod = '', rakutenShipping = null, rakutenUrl = null;
     if (rakutenAppId) {
-      await sleep(400);
+      await sleep(250);
       const janCode = p.eanList?.[0] || p.upcList?.[0] || null;
       const rp = await fetchRakutenPrice(rakutenAppId, p.title || '', amazonPrice, janCode);
       if (rp) { rakutenPrice = rp.price; rakutenIsReal = true; rakutenMethod = rp.method; rakutenShipping = rp.shipping; rakutenUrl = rp.itemUrl || null; }
     }
-    if (!rakutenPrice) rakutenPrice = Math.floor(amazonPrice * 0.75);
+    // 実価格が取れなかった商品はスキップ
+    if (!rakutenPrice) continue;
 
     if (rakutenPrice > maxBuy) continue;
     const refFee = calcRefFee(amazonPrice);
@@ -521,8 +522,8 @@ function renderProducts(results) {
   if (!results.length) {
     el.innerHTML = `<div class="empty">
       <div class="empty-icon">🔎</div>
-      <div class="empty-title">条件に合う商品なし</div>
-      <div style="margin-bottom:16px">最低利益率・最低利益額を0にして再検索してみてください</div>
+      <div class="empty-title">楽天で実価格が取れた商品なし</div>
+      <div style="margin-bottom:16px">楽天APIで価格を確認できた商品のみ表示しています。カテゴリや価格帯を変えて再検索してみてください</div>
       <button class="btn" style="max-width:280px;margin:0 auto" onclick="resetAndSearch()">条件リセットして再検索</button>
     </div>`;
     return;
@@ -610,6 +611,7 @@ async function startSearch() {
   const apiKey = document.getElementById('keepaKey').value.trim();
   if (!apiKey) { showError('Keepa APIキーを入力してください'); return; }
   const rakutenAppId = document.getElementById('rakutenAppId').value.trim();
+  if (!rakutenAppId) { showError('楽天アプリIDを入力してください（実価格取得に必須です）'); return; }
 
   localStorage.setItem('keepaKey', apiKey);
   if (rakutenAppId) localStorage.setItem('rakutenAppId', rakutenAppId);
