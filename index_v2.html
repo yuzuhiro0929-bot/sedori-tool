@@ -171,6 +171,26 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
   <div class="row2">
     <div class="field">
+      <label>Amazon価格 下限 (円)</label>
+      <input type="number" id="minPrice" value="2500" step="500">
+    </div>
+    <div class="field">
+      <label>Amazon価格 上限 (円)</label>
+      <input type="number" id="maxPrice" value="50000" step="1000">
+    </div>
+  </div>
+  <div class="row2">
+    <div class="field">
+      <label>新品出品数 最低</label>
+      <input type="number" id="minNewOffers" value="2" min="1">
+    </div>
+    <div class="field">
+      <label>レビュー件数 最低</label>
+      <input type="number" id="minReviews" value="10" min="0">
+    </div>
+  </div>
+  <div class="row2">
+    <div class="field">
       <label>最低利益額 (円)</label>
       <input type="number" id="minProfit" value="1" step="100">
     </div>
@@ -178,6 +198,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <label>仕入れ上限 (円)</label>
       <input type="number" id="maxBuy" value="50000" step="1000">
     </div>
+  </div>
+  <div class="field">
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:13px">
+      <input type="checkbox" id="amazonOutOfStock" checked style="width:18px;height:18px;border-radius:5px;flex-shrink:0;cursor:pointer">
+      Amazon本体 在庫切れのみ（サードパーティ出品のみの商品）
+    </label>
   </div>
   <button class="btn" id="searchBtn" onclick="startSearch()">🔍 リサーチ開始</button>
   <div class="error-box" id="errorBox"></div>
@@ -236,27 +262,37 @@ const PRESET_ASINS = {
   "3418508051":["B0CHX2FWWZ","B0CK3FGPBM","B0C2XMCQGX","B0BSZB87MK","B0CF4HDNHT","B0BX7KFMYK","B0C9QMHXKP","B0BPZG8RQN","B0CGQNM7BX","B0CF5TRBHM"]
 };
 
-async function fetchBestSellers(apiKey, categoryId, maxRank) {
-  setStep('Best Sellers リストを取得中...', 5);
+async function fetchProductFinder(apiKey, opts) {
+  const { categoryId, maxRank, minPrice, maxPrice, minNewOffers, minReviews, amazonOutOfStock } = opts;
+  setStep('Product Finder で商品を絞り込み中...', 5);
+
+  const selection = {
+    categories_include: [parseInt(categoryId)],
+    current_SALES_gte: 1,
+    current_SALES_lte: maxRank,
+    current_NEW_gte: minPrice * 100,
+    current_NEW_lte: maxPrice * 100,
+    countNewOffers_gte: minNewOffers,
+    count_reviews_gte: minReviews,
+  };
+  if (amazonOutOfStock) selection.current_AMAZON_lte = -1;
+
   try {
-    const resp = await fetch(`https://api.keepa.com/bestsellers?key=${apiKey}&domain=5&category=${categoryId}`);
-    if (!resp.ok) throw new Error(`ベストセラーAPI HTTPエラー: ${resp.status}`);
+    const url = `https://api.keepa.com/query?key=${apiKey}&domain=5&selection=${encodeURIComponent(JSON.stringify(selection))}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Product Finder HTTPエラー: ${resp.status}`);
     const data = await resp.json();
-    if (data.error) throw new Error(`ベストセラーAPI: ${JSON.stringify(data.error)}`);
-    if (data.bestSellersList?.asinList?.length > 0) {
-      const asins = data.bestSellersList.asinList;
-      const ranks = data.bestSellersList.rankList || asins.map((_,i)=>i+1);
-      let pairs = asins.map((a,i)=>[a,ranks[i]||i+1]).filter(([,r])=>r<=maxRank);
-      pairs = pairs.slice(0, 100);
-      setStep(`✅ ベストセラー ${pairs.length}件取得成功`, 8);
-      return pairs;
-    }
-    throw new Error('ベストセラーリストが空でした');
+    if (data.error) throw new Error(`Product Finder: ${JSON.stringify(data.error)}`);
+    const asins = data.asinList || [];
+    if (asins.length === 0) throw new Error('条件に合う商品が見つかりませんでした');
+    setStep(`✅ ${asins.length}件の候補を取得 (全${data.totalResults || '?'}件中)`, 10);
+    await sleep(800);
+    return asins.slice(0, 100).map((asin, i) => [asin, i + 1]);
   } catch(e) {
-    setStep(`⚠️ ${e.message} → プリセット30件で代替`, 8);
-    await sleep(1500); // エラー内容を見せる
+    setStep(`⚠️ ${e.message} → プリセット商品で代替`, 8);
+    await sleep(1500);
     const preset = PRESET_ASINS[categoryId] || PRESET_ASINS["493964"];
-    return preset.map((asin,i) => [asin, (i+1)*1000]);
+    return preset.map((asin, i) => [asin, (i+1)*1000]);
   }
 }
 
@@ -574,13 +610,18 @@ async function startSearch() {
   setStep('準備中...', 0);
 
   try {
-    const categoryId = document.getElementById('category').value;
-    const maxRank   = parseInt(document.getElementById('maxRank').value);
-    const minMargin = parseFloat(document.getElementById('minMargin').value);
-    const minProfit = parseFloat(document.getElementById('minProfit').value);
-    const maxBuy    = parseFloat(document.getElementById('maxBuy').value);
+    const categoryId      = document.getElementById('category').value;
+    const maxRank         = parseInt(document.getElementById('maxRank').value);
+    const minMargin       = parseFloat(document.getElementById('minMargin').value);
+    const minProfit       = parseFloat(document.getElementById('minProfit').value);
+    const maxBuy          = parseFloat(document.getElementById('maxBuy').value);
+    const minPrice        = parseFloat(document.getElementById('minPrice').value);
+    const maxPrice        = parseFloat(document.getElementById('maxPrice').value);
+    const minNewOffers    = parseInt(document.getElementById('minNewOffers').value);
+    const minReviews      = parseInt(document.getElementById('minReviews').value);
+    const amazonOutOfStock = document.getElementById('amazonOutOfStock').checked;
 
-    const pairs    = await fetchBestSellers(apiKey, categoryId, maxRank);
+    const pairs = await fetchProductFinder(apiKey, { categoryId, maxRank, minPrice, maxPrice, minNewOffers, minReviews, amazonOutOfStock });
     setStep(`${pairs.length}件のASINを取得`, 12);
     const products = await fetchProductDetails(apiKey, pairs);
     setStep(`${products.length}件の商品データを取得、価格照合中...`, 45);
