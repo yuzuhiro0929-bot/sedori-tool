@@ -303,7 +303,7 @@ async function fetchProductDetails(apiKey, pairs) {
     const batch = pairs.slice(i, i + 100);
     const rankMap = Object.fromEntries(batch);
     setStep(`商品詳細 ${i+1}〜${Math.min(i+100,total)}件を取得中...`, Math.round(10 + (i/total)*35));
-    const resp = await fetch(`https://api.keepa.com/product?key=${apiKey}&domain=5&asin=${batch.map(([a])=>a).join(',')}&history=1&days=90`);
+    const resp = await fetch(`https://api.keepa.com/product?key=${apiKey}&domain=5&asin=${batch.map(([a])=>a).join(',')}&stats=1&history=0`);
     if (!resp.ok) throw new Error(`Keepa APIエラー: ${resp.status}`);
     const data = await resp.json();
     if (data.error) throw new Error(`Keepa: ${data.error.message || '認証エラー'}`);
@@ -382,24 +382,23 @@ async function fetchRakutenPrice(appId, title, amazonPrice, janCode) {
   return null;
 }
 
-function getLatestFromCsv(csv) {
-  if (!csv || csv.length < 2) return null;
-  // Keepa CSV形式: [timestamp, price, timestamp, price, ...]
-  // 後ろから走査して最新の有効価格を取得
-  for (let i = csv.length - 1; i >= 1; i -= 2) {
-    if (csv[i] > 0) return csv[i];
-  }
-  return null;
-}
-
 function getAmazonPrice(p) {
-  // csv[1] = 新品マーケットプレイス最安値（最も安定してデータあり）
-  // csv[11] = 買い物かご価格
-  // csv[0] = Amazon直販価格
-  // csv[18] = FBA新品
-  for (const idx of [11, 1, 18, 0]) {
-    const price = getLatestFromCsv(p.csv?.[idx]);
-    if (price) return price;
+  // stats.current: index 1=新品最安値, 11=買い物かご, 18=FBA新品, 0=Amazon直販
+  const cur = p.stats?.current;
+  if (cur) {
+    for (const i of [1, 11, 18, 0]) {
+      if (cur[i] && cur[i] > 0) return cur[i];
+    }
+  }
+  // フォールバック: CSVヒストリ（history=1時）
+  if (p.csv) {
+    for (const idx of [1, 11, 18, 0]) {
+      const csv = p.csv[idx];
+      if (!csv || csv.length < 2) continue;
+      for (let i = csv.length - 1; i >= 1; i -= 2) {
+        if (csv[i] > 0) return csv[i];
+      }
+    }
   }
   return null;
 }
