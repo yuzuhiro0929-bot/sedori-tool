@@ -140,8 +140,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <input type="password" id="keepaKey" placeholder="keepa api key" autocomplete="off">
   </div>
   <div class="field">
-    <label>楽天アプリID<span class="opt">オプション — 実際の楽天価格を取得</span></label>
-    <input type="text" id="rakutenAppId" placeholder="楽天Webサービス Application ID" autocomplete="off">
+    <label>Yahoo Shopping Client ID<span class="opt">仕入れ価格取得に必須</span></label>
+    <input type="text" id="rakutenAppId" placeholder="Yahoo Shopping API Client ID" autocomplete="off">
   </div>
   <div class="card-title" style="margin-top:18px">🔎 検索条件</div>
   <div class="field">
@@ -238,7 +238,7 @@ let currentSort = 'margin';
 
 window.addEventListener('DOMContentLoaded', () => {
   const k = localStorage.getItem('keepaKey');
-  const r = localStorage.getItem('rakutenAppId');
+  const r = localStorage.getItem('yahooAppId') || localStorage.getItem('rakutenAppId');
   if (k) document.getElementById('keepaKey').value = k;
   if (r) document.getElementById('rakutenAppId').value = r;
 });
@@ -337,27 +337,25 @@ function median(arr) {
   return s.length % 2 ? s[mid] : Math.round((s[mid-1] + s[mid]) / 2);
 }
 
-async function rakutenSearch(appId, keyword, amazonPrice, useJan = false) {
+async function yahooSearch(appId, keyword, amazonPrice, useJan = false) {
   try {
-    const param = useJan ? `janCode=${keyword}` : `keyword=${encodeURIComponent(keyword)}`;
-    const url = `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?format=json&${param}&applicationId=${appId}&hits=30&sort=%2BitemPrice`;
+    const param = useJan ? `jan_code=${encodeURIComponent(keyword)}` : `query=${encodeURIComponent(keyword)}`;
+    const url = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${appId}&${param}&results=30&sort=%2Bprice`;
     const resp = await fetch(url);
     const data = await resp.json();
-    console.log(`[楽天] keyword="${keyword}" status=${resp.status} hits=${data.Items?.length ?? 0} error=${data.error ?? 'none'}`);
-    if (!resp.ok) return null;
-    if (!data.Items?.length) return null;
-    const allItems = data.Items.map(i => i.Item);
-    // 価格フィルター: Amazon価格の20%〜180%の範囲（広めに取る）
-    let items = allItems.filter(i => i.itemPrice >= amazonPrice * 0.2 && i.itemPrice <= amazonPrice * 1.8);
-    // それでも0件なら全件使う
+    console.log(`[Yahoo] keyword="${keyword}" status=${resp.status} hits=${data.hits?.length ?? 0}`);
+    if (!resp.ok || !data.hits?.length) return null;
+    const allItems = data.hits;
+    // 価格フィルター: Amazon価格の20%〜180%
+    let items = allItems.filter(i => i.price >= amazonPrice * 0.2 && i.price <= amazonPrice * 1.8);
     if (!items.length) items = allItems;
-    const price = median(items.map(i => i.itemPrice));
-    // 最安値商品のURLを取得
-    const cheapest = items.reduce((a, b) => a.itemPrice <= b.itemPrice ? a : b);
-    const itemUrl = cheapest.itemUrl || cheapest.affiliateUrl || null;
-    // 送料無料判定: postageFlag=0 が送料込み
-    const freeShippingCount = items.filter(i => i.postageFlag === 0).length;
-    const shipping = freeShippingCount >= items.length / 2 ? 'free' : 'paid';
+    const price = median(items.map(i => i.price));
+    // 最安値商品のURL
+    const cheapest = items.reduce((a, b) => a.price <= b.price ? a : b);
+    const itemUrl = cheapest.url || null;
+    // 送料無料判定
+    const freeCount = items.filter(i => i.shipping?.code === 0).length;
+    const shipping = freeCount >= items.length / 2 ? 'free' : 'paid';
     return { price, shipping, itemUrl };
   } catch(e) { return null; }
 }
@@ -367,29 +365,29 @@ async function fetchRakutenPrice(appId, title, amazonPrice, janCode) {
 
   // 1) JANコードで検索（最高精度）
   if (janCode) {
-    const res = await rakutenSearch(appId, janCode, amazonPrice, true);
+    const res = await yahooSearch(appId, janCode, amazonPrice, true);
     if (res) return { price: res.price, method: 'jan', shipping: res.shipping, itemUrl: res.itemUrl };
   }
 
   // 2) 型番で検索（高精度）
   const modelNo = extractModelNumber(title);
   if (modelNo) {
-    const res = await rakutenSearch(appId, modelNo, amazonPrice, false);
+    const res = await yahooSearch(appId, modelNo, amazonPrice, false);
     if (res) return { price: res.price, method: 'model', shipping: res.shipping, itemUrl: res.itemUrl };
   }
 
-  // 3) タイトル前半（長め30文字）で検索
+  // 3) タイトル前半（30文字）で検索
   const cleanTitle30 = title
     .replace(/[【】「」『』()（）［］《》〈〉™®\[\]]/g, ' ')
     .replace(/\s+/g, ' ')
     .substring(0, 30)
     .trim();
-  const res30 = await rakutenSearch(appId, cleanTitle30, amazonPrice, false);
+  const res30 = await yahooSearch(appId, cleanTitle30, amazonPrice, false);
   if (res30) return { price: res30.price, method: 'keyword', shipping: res30.shipping, itemUrl: res30.itemUrl };
 
-  // 4) タイトル前半（短め15文字）で再検索
+  // 4) タイトル前半（15文字）で再検索
   const cleanTitle15 = cleanTitle30.substring(0, 15).trim();
-  const res15 = await rakutenSearch(appId, cleanTitle15, amazonPrice, false);
+  const res15 = await yahooSearch(appId, cleanTitle15, amazonPrice, false);
   if (res15) return { price: res15.price, method: 'keyword', shipping: res15.shipping, itemUrl: res15.itemUrl };
 
   return null;
@@ -588,7 +586,7 @@ function renderProducts(results) {
   <div class="prod-links">
     <a class="prod-link keepa" href="https://keepa.com/#!product/5-${r.asin}" target="_blank">📈 Keepa</a>
     <a class="prod-link amz"   href="https://www.amazon.co.jp/dp/${r.asin}" target="_blank">🛒 Amazon</a>
-    <a class="prod-link rak"   href="https://search.rakuten.co.jp/search/mall/${rqKw}" target="_blank">🔴 楽天</a>
+    <a class="prod-link rak"   href="https://shopping.yahoo.co.jp/search?p=${rqKw}" target="_blank">🟡 Yahoo</a>
   </div>
 </div>`;
   }).join('');
@@ -615,7 +613,7 @@ async function startSearch() {
   if (!rakutenAppId) { showError('楽天アプリIDを入力してください（実価格取得に必須です）'); return; }
 
   localStorage.setItem('keepaKey', apiKey);
-  if (rakutenAppId) localStorage.setItem('rakutenAppId', rakutenAppId);
+  if (rakutenAppId) localStorage.setItem('yahooAppId', rakutenAppId);
 
   const btn = document.getElementById('searchBtn');
   btn.disabled = true;
