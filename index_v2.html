@@ -303,9 +303,13 @@ async function rakutenSearch(appId, keyword, amazonPrice, useJan = false) {
     if (!resp.ok) return null;
     const data = await resp.json();
     if (!data.Items?.length) return null;
-    const prices = data.Items.map(i => i.Item.itemPrice).filter(p => p >= amazonPrice * 0.35 && p <= amazonPrice * 1.4);
-    if (!prices.length) return null;
-    return median(prices);
+    const items = data.Items.map(i => i.Item).filter(i => i.itemPrice >= amazonPrice * 0.35 && i.itemPrice <= amazonPrice * 1.4);
+    if (!items.length) return null;
+    const price = median(items.map(i => i.itemPrice));
+    // 送料無料判定: postageFlag=0 が送料込み
+    const freeShippingCount = items.filter(i => i.postageFlag === 0).length;
+    const shipping = freeShippingCount >= items.length / 2 ? 'free' : 'paid';
+    return { price, shipping };
   } catch(e) { return null; }
 }
 
@@ -314,25 +318,25 @@ async function fetchRakutenPrice(appId, title, amazonPrice, janCode) {
 
   // 1) JANコードで検索（最高精度）
   if (janCode) {
-    const price = await rakutenSearch(appId, janCode, amazonPrice, true);
-    if (price) return { price, method: 'jan' };
+    const res = await rakutenSearch(appId, janCode, amazonPrice, true);
+    if (res) return { price: res.price, method: 'jan', shipping: res.shipping };
   }
 
   // 2) 型番で検索（高精度）
   const modelNo = extractModelNumber(title);
   if (modelNo) {
-    const price = await rakutenSearch(appId, modelNo, amazonPrice, false);
-    if (price) return { price, method: 'model' };
+    const res = await rakutenSearch(appId, modelNo, amazonPrice, false);
+    if (res) return { price: res.price, method: 'model', shipping: res.shipping };
   }
 
-  // 3) タイトル前半+ブランドで検索（フォールバック）
+  // 3) タイトル前半で検索（フォールバック）
   const cleanTitle = title
-    .replace(/[【】「」『』()（）［］《》〈〉™®【】\[\]]/g, ' ')
+    .replace(/[【】「」『』()（）［］《》〈〉™®\[\]]/g, ' ')
     .replace(/\s+/g, ' ')
     .substring(0, 22)
     .trim();
-  const price = await rakutenSearch(appId, cleanTitle, amazonPrice, false);
-  if (price) return { price, method: 'keyword' };
+  const res = await rakutenSearch(appId, cleanTitle, amazonPrice, false);
+  if (res) return { price: res.price, method: 'keyword', shipping: res.shipping };
 
   return null;
 }
@@ -358,12 +362,12 @@ async function processProducts(products, opts, rakutenAppId) {
 
     setStep(`価格照合中... ${idx+1}/${total}`, Math.round(45 + (idx/total)*45));
 
-    let rakutenPrice, rakutenIsReal = false, rakutenMethod = '';
+    let rakutenPrice, rakutenIsReal = false, rakutenMethod = '', rakutenShipping = null;
     if (rakutenAppId) {
       await sleep(400);
       const janCode = p.eanList?.[0] || p.upcList?.[0] || null;
       const rp = await fetchRakutenPrice(rakutenAppId, p.title || '', amazonPrice, janCode);
-      if (rp) { rakutenPrice = rp.price; rakutenIsReal = true; rakutenMethod = rp.method; }
+      if (rp) { rakutenPrice = rp.price; rakutenIsReal = true; rakutenMethod = rp.method; rakutenShipping = rp.shipping; }
     }
     if (!rakutenPrice) rakutenPrice = Math.floor(amazonPrice * 0.75);
 
@@ -381,7 +385,7 @@ async function processProducts(products, opts, rakutenAppId) {
       amazonPrice, rakutenPrice, rakutenIsReal,
       profit: Math.round(profit),
       margin: Math.round(margin * 10) / 10,
-      refFee, fbaFee, rakutenMethod,
+      refFee, fbaFee, rakutenMethod, rakutenShipping,
     });
   }
   return results;
@@ -457,6 +461,11 @@ function renderProducts(results) {
     const neg = r.profit < 0 ? 'neg' : '';
     const t60 = r.title.substring(0,60) + (r.title.length>60?'…':'');
     const rqKw = encodeURIComponent(r.title.replace(/[【】「」()]/g,'').substring(0,28));
+    const shippingBadge = r.rakutenShipping === 'free'
+      ? `<span style="font-size:9px;background:rgba(61,220,132,.15);border:1px solid rgba(61,220,132,.4);color:#3ddc84;border-radius:4px;padding:1px 5px">送料無料</span>`
+      : r.rakutenShipping === 'paid'
+      ? `<span style="font-size:9px;background:rgba(255,82,82,.1);border:1px solid rgba(255,82,82,.3);color:#ff8a8a;border-radius:4px;padding:1px 5px">送料別</span>`
+      : '';
     const badgeMap = {
       jan:     `<span class="badge-real">JAN一致</span>`,
       model:   `<span class="badge-real" style="background:rgba(61,220,132,.12);border-color:rgba(61,220,132,.5);color:#3ddc84">型番一致</span>`,
@@ -476,7 +485,7 @@ function renderProducts(results) {
       <div class="pval amazon">¥${r.amazonPrice.toLocaleString()}</div>
     </div>
     <div class="price-tile">
-      <div class="plabel">楽天 仕入れ ${badge}</div>
+      <div class="plabel">楽天 仕入れ ${badge} ${shippingBadge}</div>
       <div class="pval rakuten">¥${r.rakutenPrice.toLocaleString()}</div>
     </div>
   </div>
