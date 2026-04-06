@@ -342,8 +342,9 @@ async function rakutenSearch(appId, keyword, amazonPrice, useJan = false) {
     const param = useJan ? `janCode=${keyword}` : `keyword=${encodeURIComponent(keyword)}`;
     const url = `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?format=json&${param}&applicationId=${appId}&hits=30&sort=%2BitemPrice`;
     const resp = await fetch(url);
-    if (!resp.ok) return null;
     const data = await resp.json();
+    console.log(`[楽天] keyword="${keyword}" status=${resp.status} hits=${data.Items?.length ?? 0} error=${data.error ?? 'none'}`);
+    if (!resp.ok) return null;
     if (!data.Items?.length) return null;
     const allItems = data.Items.map(i => i.Item);
     // 価格フィルター: Amazon価格の20%〜180%の範囲（広めに取る）
