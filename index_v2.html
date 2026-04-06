@@ -280,19 +280,16 @@ async function fetchProductFinder(apiKey, opts) {
   try {
     const url = `https://api.keepa.com/query?key=${apiKey}&domain=5&selection=${encodeURIComponent(JSON.stringify(selection))}`;
     const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`Product Finder HTTPエラー: ${resp.status}`);
-    const data = await resp.json();
-    if (data.error) throw new Error(`Product Finder: ${JSON.stringify(data.error)}`);
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} / tokens残: ${data.tokensLeft ?? '?'} / ${JSON.stringify(data.error ?? '')}`);
+    if (data.error) throw new Error(`Keepaエラー: ${JSON.stringify(data.error)} / tokens残: ${data.tokensLeft ?? '?'}`);
     const asins = data.asinList || [];
     if (asins.length === 0) throw new Error('条件に合う商品が見つかりませんでした');
     setStep(`✅ ${asins.length}件の候補を取得 (全${data.totalResults || '?'}件中)`, 10);
     await sleep(800);
     return asins.slice(0, 100).map((asin, i) => [asin, i + 1]);
   } catch(e) {
-    setStep(`⚠️ ${e.message} → プリセット商品で代替`, 8);
-    await sleep(1500);
-    const preset = PRESET_ASINS[categoryId] || PRESET_ASINS["493964"];
-    return preset.map((asin, i) => [asin, (i+1)*1000]);
+    throw new Error(`Product Finder失敗: ${e.message}`);
   }
 }
 
