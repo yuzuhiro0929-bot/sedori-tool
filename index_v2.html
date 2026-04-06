@@ -166,13 +166,13 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </div>
     <div class="field">
       <label>最低利益率 (%)</label>
-      <input type="number" id="minMargin" value="5" min="0" max="50">
+      <input type="number" id="minMargin" value="0" min="0" max="50">
     </div>
   </div>
   <div class="row2">
     <div class="field">
       <label>最低利益額 (円)</label>
-      <input type="number" id="minProfit" value="500" step="100">
+      <input type="number" id="minProfit" value="1" step="100">
     </div>
     <div class="field">
       <label>仕入れ上限 (円)</label>
@@ -448,7 +448,12 @@ function renderStats(results) {
 function renderProducts(results) {
   const el = document.getElementById('productsList');
   if (!results.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">🔎</div><div class="empty-title">条件に合う商品なし</div><div>フィルタ条件を緩めてみてください</div></div>`;
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">🔎</div>
+      <div class="empty-title">条件に合う商品なし</div>
+      <div style="margin-bottom:16px">最低利益率・最低利益額を0にして再検索してみてください</div>
+      <button class="btn" style="max-width:280px;margin:0 auto" onclick="resetAndSearch()">条件リセットして再検索</button>
+    </div>`;
     return;
   }
   const hasEst = results.some(r=>!r.rakutenIsReal);
@@ -553,7 +558,9 @@ async function startSearch() {
     const maxBuy    = parseFloat(document.getElementById('maxBuy').value);
 
     const pairs    = await fetchBestSellers(apiKey, categoryId, maxRank);
+    setStep(`${pairs.length}件のASINを取得`, 12);
     const products = await fetchProductDetails(apiKey, pairs);
+    setStep(`${products.length}件の商品データを取得、価格照合中...`, 45);
     const results  = await processProducts(products, { minMargin, minProfit, maxBuy }, rakutenAppId);
     cachedResults  = results;
 
@@ -582,6 +589,12 @@ function setStep(msg, pct) {
 }
 function showError(msg) { const e=document.getElementById('errorBox'); e.textContent=msg; e.classList.add('show'); }
 function hideError() { document.getElementById('errorBox').classList.remove('show'); }
+function resetAndSearch() {
+  document.getElementById('minMargin').value = '0';
+  document.getElementById('minProfit').value = '1';
+  document.getElementById('maxBuy').value = '200000';
+  startSearch();
+}
 function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
 </script>
 </body>
