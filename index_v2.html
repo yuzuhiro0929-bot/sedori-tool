@@ -267,12 +267,12 @@ async function fetchProductFinder(apiKey, opts) {
   setStep('Product Finder で商品を絞り込み中...', 5);
 
   // 条件を段階的に緩めて再試行
-  const base = { current_SALES_lte: maxRank, perPage: 100, page: 0 };
+  const base = { salesRankReference: parseInt(categoryId), salesRankLte: maxRank, perPage: 100, page: 0, sort: [["salesRank", "asc"]] };
   const attempts = [
     // 試行1: 全条件
-    { ...base, current_NEW_gte: minPrice, current_NEW_lte: maxPrice, current_COUNT_NEW_gte: minNewOffers, current_COUNT_REVIEWS_gte: minReviews, ...(amazonOutOfStock ? { availabilityAmazon: [-1] } : {}) },
+    { ...base, newPriceGte: minPrice, newPriceLte: maxPrice, newOfferCountGte: minNewOffers, reviewCountGte: minReviews, ...(amazonOutOfStock ? { amazonAvailabilityOptions: [3] } : {}) },
     // 試行2: レビュー・出品数条件を外す
-    { ...base, current_NEW_gte: minPrice, current_NEW_lte: maxPrice },
+    { ...base, newPriceGte: minPrice, newPriceLte: maxPrice },
     // 試行3: 価格条件も外してランクのみ
     { ...base },
   ];
