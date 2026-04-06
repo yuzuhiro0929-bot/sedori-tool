@@ -268,14 +268,14 @@ async function fetchProductFinder(apiKey, opts) {
 
   const selection = {
     categories_include: [parseInt(categoryId)],
-    current_SALES_gte: 1,
     current_SALES_lte: maxRank,
     current_NEW_gte: minPrice * 100,
     current_NEW_lte: maxPrice * 100,
-    countNewOffers_gte: minNewOffers,
+    newOfferCount_gte: minNewOffers,
     count_reviews_gte: minReviews,
+    with_reviews: 1,
   };
-  if (amazonOutOfStock) selection.current_AMAZON_lte = -1;
+  if (amazonOutOfStock) selection.current_AMAZON_gte = -1;
 
   try {
     const url = `https://api.keepa.com/query?key=${apiKey}&domain=5&selection=${encodeURIComponent(JSON.stringify(selection))}`;
@@ -284,7 +284,7 @@ async function fetchProductFinder(apiKey, opts) {
     if (!resp.ok) throw new Error(`HTTP ${resp.status} / tokens残: ${data.tokensLeft ?? '?'} / ${JSON.stringify(data.error ?? '')}`);
     if (data.error) throw new Error(`Keepaエラー: ${JSON.stringify(data.error)} / tokens残: ${data.tokensLeft ?? '?'}`);
     const asins = data.asinList || [];
-    if (asins.length === 0) throw new Error('条件に合う商品が見つかりませんでした');
+    if (asins.length === 0) throw new Error(`条件に合う商品が見つかりませんでした (totalResults:${data.totalResults ?? 0}, selection:${JSON.stringify(selection)})`);
     setStep(`✅ ${asins.length}件の候補を取得 (全${data.totalResults || '?'}件中)`, 10);
     await sleep(800);
     return asins.slice(0, 100).map((asin, i) => [asin, i + 1]);
@@ -300,7 +300,7 @@ async function fetchProductDetails(apiKey, pairs) {
     const batch = pairs.slice(i, i + 100);
     const rankMap = Object.fromEntries(batch);
     setStep(`商品詳細 ${i+1}〜${Math.min(i+100,total)}件を取得中...`, Math.round(10 + (i/total)*35));
-    const resp = await fetch(`https://api.keepa.com/product?key=${apiKey}&domain=5&asin=${batch.map(([a])=>a).join(',')}&history=1&days=30`);
+    const resp = await fetch(`https://api.keepa.com/product?key=${apiKey}&domain=5&asin=${batch.map(([a])=>a).join(',')}&stats=1&history=1`);
     if (!resp.ok) throw new Error(`Keepa APIエラー: ${resp.status}`);
     const data = await resp.json();
     if (data.error) throw new Error(`Keepa: ${data.error.message || '認証エラー'}`);
