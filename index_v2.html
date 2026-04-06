@@ -271,11 +271,15 @@ async function fetchProductFinder(apiKey, opts) {
     current_SALES_lte: maxRank,
     current_NEW_gte: minPrice * 100,
     current_NEW_lte: maxPrice * 100,
-    newOfferCount_gte: minNewOffers,
-    count_reviews_gte: minReviews,
-    with_reviews: 1,
+    current_COUNT_NEW_gte: minNewOffers,
+    current_COUNT_REVIEWS_gte: minReviews,
+    sort: [["current_SALES", "asc"]],
+    perPage: 100,
+    page: 0,
   };
-  if (amazonOutOfStock) selection.current_AMAZON_gte = -1;
+  // Amazon本体在庫切れのみ = Amazon本体の出品なし(-1)
+  if (amazonOutOfStock) selection.availabilityAmazon = [-1];
+  else selection.availabilityAmazon = [0, 1, 3];
 
   try {
     const url = `https://api.keepa.com/query?key=${apiKey}&domain=5&selection=${encodeURIComponent(JSON.stringify(selection))}`;
