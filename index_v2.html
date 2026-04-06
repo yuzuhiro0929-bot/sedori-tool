@@ -272,18 +272,36 @@ async function fetchProductDetails(apiKey, pairs) {
   return products;
 }
 
-async function fetchRakutenPrice(appId, title, amazonPrice) {
+async function fetchRakutenPrice(appId, title, amazonPrice, janCode) {
   if (!appId) return null;
+  // 1) JANコードで検索（最も正確）
+  if (janCode) {
+    try {
+      const url = `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?format=json&janCode=${janCode}&applicationId=${appId}&hits=5&sort=%2BitemPrice`;
+      const resp = await fetch(url);
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.Items?.length > 0) {
+          const price = data.Items[0].Item.itemPrice;
+          if (price >= amazonPrice * 0.3 && price <= amazonPrice * 1.5) return { price, method: 'jan' };
+        }
+      }
+    } catch(e) {}
+  }
+  // 2) タイトルキーワードで検索（フォールバック）
   try {
-    const kw = title.replace(/[【】「」『』()（）［］《》〈〉]/g,' ').replace(/\s+/g,' ').substring(0,28).trim();
-    const url = `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?format=json&keyword=${encodeURIComponent(kw)}&applicationId=${appId}&hits=3&sort=%2BitemPrice`;
+    const kw = title.replace(/[【】「」『』()（）［］《》〈〉™®]/g,' ').replace(/\s+/g,' ').substring(0,25).trim();
+    const url = `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?format=json&keyword=${encodeURIComponent(kw)}&applicationId=${appId}&hits=5&sort=%2BitemPrice`;
     const resp = await fetch(url);
     if (!resp.ok) return null;
     const data = await resp.json();
     if (data.Items?.length > 0) {
-      const price = data.Items[0].Item.itemPrice;
-      // sanity check: must be 30%〜150% of Amazon price
-      if (price >= amazonPrice * 0.3 && price <= amazonPrice * 1.5) return price;
+      // 価格帯が近い商品を選ぶ（最安値ではなくAmazon価格に最も近いもの）
+      const candidates = data.Items.map(i => i.Item.itemPrice).filter(p => p >= amazonPrice * 0.4 && p <= amazonPrice * 1.3);
+      if (candidates.length > 0) {
+        const price = Math.min(...candidates);
+        return { price, method: 'keyword' };
+      }
     }
   } catch(e) {}
   return null;
@@ -310,11 +328,12 @@ async function processProducts(products, opts, rakutenAppId) {
 
     setStep(`価格照合中... ${idx+1}/${total}`, Math.round(45 + (idx/total)*45));
 
-    let rakutenPrice, rakutenIsReal = false;
+    let rakutenPrice, rakutenIsReal = false, rakutenMethod = '';
     if (rakutenAppId) {
-      await sleep(350);
-      const rp = await fetchRakutenPrice(rakutenAppId, p.title || '', amazonPrice);
-      if (rp) { rakutenPrice = rp; rakutenIsReal = true; }
+      await sleep(400);
+      const janCode = p.eanList?.[0] || p.upcList?.[0] || null;
+      const rp = await fetchRakutenPrice(rakutenAppId, p.title || '', amazonPrice, janCode);
+      if (rp) { rakutenPrice = rp.price; rakutenIsReal = true; rakutenMethod = rp.method; }
     }
     if (!rakutenPrice) rakutenPrice = Math.floor(amazonPrice * 0.75);
 
@@ -332,7 +351,7 @@ async function processProducts(products, opts, rakutenAppId) {
       amazonPrice, rakutenPrice, rakutenIsReal,
       profit: Math.round(profit),
       margin: Math.round(margin * 10) / 10,
-      refFee, fbaFee,
+      refFee, fbaFee, rakutenMethod,
     });
   }
   return results;
@@ -408,7 +427,9 @@ function renderProducts(results) {
     const neg = r.profit < 0 ? 'neg' : '';
     const t60 = r.title.substring(0,60) + (r.title.length>60?'…':'');
     const rqKw = encodeURIComponent(r.title.replace(/[【】「」()]/g,'').substring(0,28));
-    const badge = r.rakutenIsReal ? `<span class="badge-real">実価格</span>` : `<span class="badge-est">推定</span>`;
+    const badge = r.rakutenIsReal
+      ? (r.rakutenMethod === 'jan' ? `<span class="badge-real">JANコード一致</span>` : `<span class="badge-real" style="background:rgba(0,229,255,.1);border-color:rgba(0,229,255,.4);color:var(--cyan)">キーワード検索</span>`)
+      : `<span class="badge-est">推定値</span>`;
     return `
 <div class="product-card">
   <div class="prod-top">
