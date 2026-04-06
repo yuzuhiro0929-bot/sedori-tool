@@ -237,22 +237,27 @@ const PRESET_ASINS = {
 };
 
 async function fetchBestSellers(apiKey, categoryId, maxRank) {
+  setStep('Best Sellers リストを取得中...', 5);
   try {
-    setStep('Best Sellers リストを取得中...', 5);
     const resp = await fetch(`https://api.keepa.com/bestsellers?key=${apiKey}&domain=5&category=${categoryId}`);
-    if (resp.ok) {
-      const data = await resp.json();
-      if (data.bestSellersList?.asinList?.length > 0) {
-        const asins = data.bestSellersList.asinList;
-        const ranks = data.bestSellersList.rankList || asins.map((_,i)=>i+1);
-        let pairs = asins.map((a,i)=>[a,ranks[i]||i+1]).filter(([,r])=>r<=maxRank);
-        return pairs.slice(0, 100);
-      }
+    if (!resp.ok) throw new Error(`ベストセラーAPI HTTPエラー: ${resp.status}`);
+    const data = await resp.json();
+    if (data.error) throw new Error(`ベストセラーAPI: ${JSON.stringify(data.error)}`);
+    if (data.bestSellersList?.asinList?.length > 0) {
+      const asins = data.bestSellersList.asinList;
+      const ranks = data.bestSellersList.rankList || asins.map((_,i)=>i+1);
+      let pairs = asins.map((a,i)=>[a,ranks[i]||i+1]).filter(([,r])=>r<=maxRank);
+      pairs = pairs.slice(0, 100);
+      setStep(`✅ ベストセラー ${pairs.length}件取得成功`, 8);
+      return pairs;
     }
-  } catch(e) {}
-  setStep('プリセット商品リストを使用中...', 8);
-  const preset = PRESET_ASINS[categoryId] || PRESET_ASINS["493964"];
-  return preset.map((asin,i) => [asin, (i+1)*1000]);
+    throw new Error('ベストセラーリストが空でした');
+  } catch(e) {
+    setStep(`⚠️ ${e.message} → プリセット30件で代替`, 8);
+    await sleep(1500); // エラー内容を見せる
+    const preset = PRESET_ASINS[categoryId] || PRESET_ASINS["493964"];
+    return preset.map((asin,i) => [asin, (i+1)*1000]);
+  }
 }
 
 async function fetchProductDetails(apiKey, pairs) {
