@@ -262,7 +262,7 @@ async function fetchProductDetails(apiKey, pairs) {
     const batch = pairs.slice(i, i + 100);
     const rankMap = Object.fromEntries(batch);
     setStep(`商品詳細 ${i+1}〜${Math.min(i+100,total)}件を取得中...`, Math.round(10 + (i/total)*35));
-    const resp = await fetch(`https://api.keepa.com/product?key=${apiKey}&domain=5&asin=${batch.map(([a])=>a).join(',')}&stats=1&offers=20&history=0&rental=0&rating=0`);
+    const resp = await fetch(`https://api.keepa.com/product?key=${apiKey}&domain=5&asin=${batch.map(([a])=>a).join(',')}&stats=1&history=0`);
     if (!resp.ok) throw new Error(`Keepa APIエラー: ${resp.status}`);
     const data = await resp.json();
     if (data.error) throw new Error(`Keepa: ${data.error.message || '認証エラー'}`);
