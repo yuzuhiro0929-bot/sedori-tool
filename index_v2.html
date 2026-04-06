@@ -348,10 +348,13 @@ async function rakutenSearch(appId, keyword, amazonPrice, useJan = false) {
     const items = data.Items.map(i => i.Item).filter(i => i.itemPrice >= amazonPrice * 0.35 && i.itemPrice <= amazonPrice * 1.4);
     if (!items.length) return null;
     const price = median(items.map(i => i.itemPrice));
+    // 最安値商品のURLを取得
+    const cheapest = items.reduce((a, b) => a.itemPrice <= b.itemPrice ? a : b);
+    const itemUrl = cheapest.itemUrl || cheapest.affiliateUrl || null;
     // 送料無料判定: postageFlag=0 が送料込み
     const freeShippingCount = items.filter(i => i.postageFlag === 0).length;
     const shipping = freeShippingCount >= items.length / 2 ? 'free' : 'paid';
-    return { price, shipping };
+    return { price, shipping, itemUrl };
   } catch(e) { return null; }
 }
 
@@ -361,14 +364,14 @@ async function fetchRakutenPrice(appId, title, amazonPrice, janCode) {
   // 1) JANコードで検索（最高精度）
   if (janCode) {
     const res = await rakutenSearch(appId, janCode, amazonPrice, true);
-    if (res) return { price: res.price, method: 'jan', shipping: res.shipping };
+    if (res) return { price: res.price, method: 'jan', shipping: res.shipping, itemUrl: res.itemUrl };
   }
 
   // 2) 型番で検索（高精度）
   const modelNo = extractModelNumber(title);
   if (modelNo) {
     const res = await rakutenSearch(appId, modelNo, amazonPrice, false);
-    if (res) return { price: res.price, method: 'model', shipping: res.shipping };
+    if (res) return { price: res.price, method: 'model', shipping: res.shipping, itemUrl: res.itemUrl };
   }
 
   // 3) タイトル前半で検索（フォールバック）
@@ -378,7 +381,7 @@ async function fetchRakutenPrice(appId, title, amazonPrice, janCode) {
     .substring(0, 22)
     .trim();
   const res = await rakutenSearch(appId, cleanTitle, amazonPrice, false);
-  if (res) return { price: res.price, method: 'keyword', shipping: res.shipping };
+  if (res) return { price: res.price, method: 'keyword', shipping: res.shipping, itemUrl: res.itemUrl };
 
   return null;
 }
@@ -417,12 +420,12 @@ async function processProducts(products, opts, rakutenAppId) {
 
     setStep(`価格照合中... ${idx+1}/${total}`, Math.round(45 + (idx/total)*45));
 
-    let rakutenPrice, rakutenIsReal = false, rakutenMethod = '', rakutenShipping = null;
+    let rakutenPrice, rakutenIsReal = false, rakutenMethod = '', rakutenShipping = null, rakutenUrl = null;
     if (rakutenAppId) {
       await sleep(400);
       const janCode = p.eanList?.[0] || p.upcList?.[0] || null;
       const rp = await fetchRakutenPrice(rakutenAppId, p.title || '', amazonPrice, janCode);
-      if (rp) { rakutenPrice = rp.price; rakutenIsReal = true; rakutenMethod = rp.method; rakutenShipping = rp.shipping; }
+      if (rp) { rakutenPrice = rp.price; rakutenIsReal = true; rakutenMethod = rp.method; rakutenShipping = rp.shipping; rakutenUrl = rp.itemUrl || null; }
     }
     if (!rakutenPrice) rakutenPrice = Math.floor(amazonPrice * 0.75);
 
@@ -440,7 +443,7 @@ async function processProducts(products, opts, rakutenAppId) {
       amazonPrice, rakutenPrice, rakutenIsReal,
       profit: Math.round(profit),
       margin: Math.round(margin * 10) / 10,
-      refFee, fbaFee, rakutenMethod, rakutenShipping,
+      refFee, fbaFee, rakutenMethod, rakutenShipping, rakutenUrl,
     });
   }
   if (noPriceCount === total && total > 0) {
@@ -549,9 +552,9 @@ function renderProducts(results) {
       <div class="plabel">Amazon 販売価格</div>
       <div class="pval amazon">¥${r.amazonPrice.toLocaleString()}</div>
     </div>
-    <div class="price-tile">
-      <div class="plabel">楽天 仕入れ ${badge} ${shippingBadge}</div>
-      <div class="pval rakuten">¥${r.rakutenPrice.toLocaleString()}</div>
+    <div class="price-tile" style="${r.rakutenUrl ? 'cursor:pointer' : ''}" onclick="${r.rakutenUrl ? `window.open('${r.rakutenUrl}','_blank')` : ''}">
+      <div class="plabel">楽天 仕入れ ${badge} ${shippingBadge} ${r.rakutenUrl ? '<span style="font-size:9px;color:var(--dim)">↗ 商品ページ</span>' : ''}</div>
+      <div class="pval rakuten" style="${r.rakutenUrl ? 'text-decoration:underline;text-underline-offset:3px' : ''}">¥${r.rakutenPrice.toLocaleString()}</div>
     </div>
   </div>
   <div class="profit-row">
