@@ -340,13 +340,16 @@ function median(arr) {
 async function rakutenSearch(appId, keyword, amazonPrice, useJan = false) {
   try {
     const param = useJan ? `janCode=${keyword}` : `keyword=${encodeURIComponent(keyword)}`;
-    const url = `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?format=json&${param}&applicationId=${appId}&hits=10&sort=%2BitemPrice`;
+    const url = `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?format=json&${param}&applicationId=${appId}&hits=30&sort=%2BitemPrice`;
     const resp = await fetch(url);
     if (!resp.ok) return null;
     const data = await resp.json();
     if (!data.Items?.length) return null;
-    const items = data.Items.map(i => i.Item).filter(i => i.itemPrice >= amazonPrice * 0.35 && i.itemPrice <= amazonPrice * 1.4);
-    if (!items.length) return null;
+    const allItems = data.Items.map(i => i.Item);
+    // 価格フィルター: Amazon価格の20%〜180%の範囲（広めに取る）
+    let items = allItems.filter(i => i.itemPrice >= amazonPrice * 0.2 && i.itemPrice <= amazonPrice * 1.8);
+    // それでも0件なら全件使う
+    if (!items.length) items = allItems;
     const price = median(items.map(i => i.itemPrice));
     // 最安値商品のURLを取得
     const cheapest = items.reduce((a, b) => a.itemPrice <= b.itemPrice ? a : b);
@@ -374,14 +377,19 @@ async function fetchRakutenPrice(appId, title, amazonPrice, janCode) {
     if (res) return { price: res.price, method: 'model', shipping: res.shipping, itemUrl: res.itemUrl };
   }
 
-  // 3) タイトル前半で検索（フォールバック）
-  const cleanTitle = title
+  // 3) タイトル前半（長め30文字）で検索
+  const cleanTitle30 = title
     .replace(/[【】「」『』()（）［］《》〈〉™®\[\]]/g, ' ')
     .replace(/\s+/g, ' ')
-    .substring(0, 22)
+    .substring(0, 30)
     .trim();
-  const res = await rakutenSearch(appId, cleanTitle, amazonPrice, false);
-  if (res) return { price: res.price, method: 'keyword', shipping: res.shipping, itemUrl: res.itemUrl };
+  const res30 = await rakutenSearch(appId, cleanTitle30, amazonPrice, false);
+  if (res30) return { price: res30.price, method: 'keyword', shipping: res30.shipping, itemUrl: res30.itemUrl };
+
+  // 4) タイトル前半（短め15文字）で再検索
+  const cleanTitle15 = cleanTitle30.substring(0, 15).trim();
+  const res15 = await rakutenSearch(appId, cleanTitle15, amazonPrice, false);
+  if (res15) return { price: res15.price, method: 'keyword', shipping: res15.shipping, itemUrl: res15.itemUrl };
 
   return null;
 }
