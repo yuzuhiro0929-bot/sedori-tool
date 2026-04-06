@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>電脳せどりPro</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#08080e; --card:#111119; --card2:#18181f; --border:#252535;
+  --cyan:#00e5ff; --orange:#ff6b35; --green:#3ddc84; --red:#ff5252;
+  --text:#eeeef5; --dim:#6a6a90; --radius:16px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;min-height:100vh;padding-bottom:60px}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,.025) 1px,transparent 1px);background-size:32px 32px;pointer-events:none;z-index:0}
+.wrap{max-width:640px;margin:0 auto;padding:0 16px;position:relative;z-index:1}
+
+header{padding:48px 0 20px;text-align:center}
+.header-icon{width:64px;height:64px;background:linear-gradient(135deg,var(--cyan),#0080ff);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 14px;box-shadow:0 0 32px rgba(0,229,255,.3)}
+h1{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;letter-spacing:-.5px}
+h1 .c{color:var(--cyan)} h1 .o{color:var(--orange)} h1 .g{color:var(--green);font-size:20px}
+.tagline{font-size:13px;color:var(--dim);margin-top:6px}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.card-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);margin-bottom:14px}
+.card-title + .card-title{margin-top:16px}
+
+.field{margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+label{display:block;font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);margin-bottom:7px}
+label .opt{font-size:10px;color:var(--green);font-weight:400;letter-spacing:0;text-transform:none;margin-left:6px}
+input,select{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:15px;padding:13px 15px;outline:none;appearance:none;-webkit-appearance:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--cyan)}
+input[type=password]{letter-spacing:3px}
+input[type=number]{font-family:'Syne',sans-serif}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236a6a90' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.btn{width:100%;background:var(--cyan);color:#000;border:none;border-radius:14px;font-family:'Syne',sans-serif;font-weight:700;font-size:16px;letter-spacing:.5px;padding:16px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+#loadingCard{display:none;text-align:center}
+.spinner{width:44px;height:44px;border:3px solid var(--border);border-top-color:var(--cyan);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-label{font-size:15px;color:var(--text);margin-bottom:10px}
+.prog-wrap{margin:0 0 4px}
+.prog-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:7px}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--cyan),#0080ff);border-radius:2px;transition:width .3s ease;width:0%}
+.prog-step{font-size:11px;color:var(--cyan);font-family:monospace}
+
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+.stat-tile{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
+.stat-tile .lbl{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.stat-tile .val{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:var(--cyan)}
+.stat-tile .val.g{color:var(--green)}
+
+.analysis-box{background:linear-gradient(135deg,rgba(0,229,255,.07),rgba(0,128,255,.05));border:1px solid rgba(0,229,255,.2);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+.analysis-hd{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.a-dot{width:8px;height:8px;background:var(--cyan);border-radius:50%;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.a-lbl{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--cyan);letter-spacing:1px}
+.a-text{font-size:13px;line-height:1.85;color:var(--text)}
+.a-text .hi{color:var(--green);font-weight:700}
+.a-text .wa{color:var(--orange);font-weight:700}
+
+.sort-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.sort-btn{background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--dim);font-size:12px;font-family:'Syne',sans-serif;font-weight:700;padding:7px 12px;cursor:pointer;transition:all .15s}
+.sort-btn.active{background:rgba(0,229,255,.1);border-color:var(--cyan);color:var(--cyan)}
+
+.product-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.prod-top{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+.prod-rank{display:inline-flex;align-items:center;background:rgba(0,229,255,.12);border:1px solid rgba(0,229,255,.25);color:var(--cyan);font-family:'Syne',sans-serif;font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;white-space:nowrap;flex-shrink:0}
+.prod-name{font-size:13px;font-weight:500;line-height:1.5;color:var(--text)}
+.prod-asin{font-family:monospace;font-size:11px;color:var(--dim);margin-bottom:12px}
+
+.price-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.price-tile{background:var(--card2);border-radius:10px;padding:10px 12px}
+.plabel{font-size:10px;color:var(--dim);margin-bottom:3px;display:flex;align-items:center;gap:4px}
+.badge-real{font-size:9px;background:rgba(61,220,132,.15);border:1px solid rgba(61,220,132,.4);color:var(--green);border-radius:4px;padding:1px 5px}
+.badge-est{font-size:9px;background:rgba(255,107,53,.12);border:1px solid rgba(255,107,53,.3);color:var(--orange);border-radius:4px;padding:1px 5px}
+.pval{font-family:'Syne',sans-serif;font-size:17px;font-weight:700}
+.pval.amazon{color:var(--cyan)}
+.pval.rakuten{color:var(--orange)}
+
+.profit-row{display:flex;align-items:center;justify-content:space-between;background:var(--card2);border-radius:10px;padding:10px 14px;margin-bottom:10px}
+.profit-lbl{font-size:11px;color:var(--dim)}
+.fee-detail{font-size:10px;color:var(--dim);margin-top:2px}
+.profit-val{font-family:'Syne',sans-serif;font-size:20px;font-weight:800}
+.profit-val.pos{color:var(--green)}
+.profit-val.neg{color:var(--red)}
+
+.margin-bar-wrap{margin-bottom:12px}
+.margin-bar-bg{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.margin-bar-fill{height:100%;border-radius:3px;background:var(--green);transition:width .4s ease}
+.margin-bar-fill.neg{background:var(--red)}
+.margin-meta{display:flex;justify-content:space-between;margin-top:5px}
+.margin-meta span{font-size:11px;color:var(--dim)}
+.margin-pct{font-family:'Syne',sans-serif;font-weight:700;color:var(--green);font-size:13px}
+.margin-pct.neg{color:var(--red)}
+
+.keepa-toggle{width:100%;background:none;border:1px dashed var(--border);border-radius:10px;color:var(--dim);font-size:12px;font-family:'Noto Sans JP',sans-serif;padding:9px;cursor:pointer;text-align:center;margin-bottom:10px;transition:all .15s}
+.keepa-toggle:hover,.keepa-toggle:active{border-color:var(--orange);color:var(--orange)}
+.keepa-graph-wrap{display:none;border-radius:10px;overflow:hidden;margin-bottom:10px;background:#000;min-height:40px}
+.keepa-graph-wrap.open{display:block}
+.keepa-graph-wrap img{width:100%;display:block}
+.graph-loading{text-align:center;padding:12px;font-size:11px;color:var(--dim)}
+
+.prod-links{display:flex;gap:8px}
+.prod-link{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:9px;border:1px solid var(--border);border-radius:10px;color:var(--dim);text-decoration:none;font-size:11px;font-weight:500;transition:all .15s}
+.prod-link.keepa:active{border-color:var(--orange);color:var(--orange)}
+.prod-link.amz:active{border-color:var(--cyan);color:var(--cyan)}
+.prod-link.rak:active{border-color:#ff5555;color:#ff5555}
+
+.error-box{background:rgba(255,82,82,.1);border:1px solid rgba(255,82,82,.3);border-radius:12px;padding:14px 16px;font-size:13px;color:#ff8a8a;display:none;margin-top:12px;line-height:1.6}
+.error-box.show{display:block}
+.notice{background:rgba(0,229,255,.05);border:1px solid rgba(0,229,255,.12);border-radius:12px;padding:12px 15px;font-size:12px;color:var(--dim);line-height:1.7;margin-bottom:14px}
+.notice strong{color:var(--cyan)}
+.empty{text-align:center;padding:50px 20px;color:var(--dim)}
+.empty-icon{font-size:44px;margin-bottom:14px;opacity:.5}
+.empty-title{font-family:'Syne',sans-serif;font-size:17px;color:var(--text);margin-bottom:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="header-icon">🔍</div>
+  <h1><span class="c">電脳</span><span class="o">せどり</span> <span class="g">Pro</span></h1>
+  <div class="tagline">Keepa × 楽天API で仕入れ価格差を自動リサーチ</div>
+</header>
+
+<div class="card">
+  <div class="card-title">⚙️ API設定</div>
+  <div class="field">
+    <label>Keepa APIキー</label>
+    <input type="password" id="keepaKey" placeholder="keepa api key" autocomplete="off">
+  </div>
+  <div class="field">
+    <label>楽天アプリID<span class="opt">オプション — 実際の楽天価格を取得</span></label>
+    <input type="text" id="rakutenAppId" placeholder="楽天Webサービス Application ID" autocomplete="off">
+  </div>
+  <div class="card-title" style="margin-top:18px">🔎 検索条件</div>
+  <div class="field">
+    <label>カテゴリ</label>
+    <select id="category">
+      <option value="672">家電全般</option>
+      <option value="493964">パソコン・周辺機器</option>
+      <option value="2127209051">カメラ</option>
+      <option value="160384011">テレビ・レコーダー</option>
+      <option value="3418508051">スマートフォン</option>
+    </select>
+  </div>
+  <div class="row2">
+    <div class="field">
+      <label>ランク上限</label>
+      <select id="maxRank">
+        <option value="10000">1万位</option>
+        <option value="20000">2万位</option>
+        <option value="50000" selected>5万位</option>
+        <option value="100000">10万位</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>最低利益率 (%)</label>
+      <input type="number" id="minMargin" value="10" min="0" max="50">
+    </div>
+  </div>
+  <div class="row2">
+    <div class="field">
+      <label>最低利益額 (円)</label>
+      <input type="number" id="minProfit" value="500" step="100">
+    </div>
+    <div class="field">
+      <label>仕入れ上限 (円)</label>
+      <input type="number" id="maxBuy" value="50000" step="1000">
+    </div>
+  </div>
+  <button class="btn" id="searchBtn" onclick="startSearch()">🔍 リサーチ開始</button>
+  <div class="error-box" id="errorBox"></div>
+</div>
+
+<div class="card" id="loadingCard">
+  <div style="text-align:center;padding:16px 0 8px">
+    <div class="spinner"></div>
+    <div class="loading-label">データ取得中...</div>
+    <div class="prog-wrap">
+      <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+      <div class="prog-step" id="progStep">Keepa APIに接続中...</div>
+    </div>
+  </div>
+</div>
+
+<div id="resultsArea" style="display:none">
+  <div class="stats-grid" id="statsGrid"></div>
+  <div class="analysis-box" id="analysisBox" style="display:none">
+    <div class="analysis-hd"><div class="a-dot"></div><div class="a-lbl">リサーチ分析レポート</div></div>
+    <div class="a-text" id="analysisText"></div>
+  </div>
+  <div class="sort-bar" id="sortBar"></div>
+  <div id="noticeArea"></div>
+  <div id="productsList"></div>
+</div>
+
+</div>
+<script>
+let cachedResults = [];
+let currentSort = 'margin';
+
+window.addEventListener('DOMContentLoaded', () => {
+  const k = localStorage.getItem('keepaKey');
+  const r = localStorage.getItem('rakutenAppId');
+  if (k) document.getElementById('keepaKey').value = k;
+  if (r) document.getElementById('rakutenAppId').value = r;
+});
+
+// ── FBA fee (approximate) ──
+function calcFbaFee(price) {
+  if (price < 2000)  return 400;
+  if (price < 5000)  return 600;
+  if (price < 10000) return 800;
+  if (price < 30000) return 1200;
+  return 2000;
+}
+function calcRefFee(price) { return Math.round(price * 0.10); }
+
+// ── Preset ASINs (fallback) ──
+const PRESET_ASINS = {
+  "672":["B0CHWGK7RB","B09G9FPHY6","B09B2KYFSN","B0CX38V9VX","B0CLVW79ZM","B0BW35QHFM","B0C37YWFGL","B0CK35SK2Y","B0CXHKFKC2","B0BX17JWST","B0BK1VD3BN","B0CJGK9WHT","B09W2VFLXD","B0BN3GFN98","B0C1J1CC4H","B0BYW9XGLB","B08N5WRWNW","B09CQKYZRP","B0B4MJ4QV2","B0BZRMYBQS","B0BSHF7WHW","B07WDLHJWF","B09X7FXHVD","B0C2M5T8FW","B0CL7GCNRF","B0BQRGGQ5B","B0CG5HH7TF","B09BBBQ3GK","B0C9G3CKD8","B0BJ3BQQL8"],
+  "493964":["B0CX4H2C3G","B0B6BP9PV4","B09MFMTMPD","B0C1H26C7M","B0BCF3VL1N","B0BG94R3NZ","B0BHZJ5YQY","B09G9HD5KW","B0CF5BWKT6","B0CGNNF74W","B0C7M4KKWZ","B0BRK3GNFB","B09V3ZKKYN","B0CG9XPVH9","B0BRJPLTSP","B0BG3GCPVX","B0C2GFHQ5T","B0BYT5BZJV","B0C5M5FKLB","B0CL7DZD9P","B08KH79VHF","B09FNZ3RQ1","B0BQTQ29BN","B0C9B9QXHM","B0BKRT9XVY","B0CGQ3QVFC","B0B6BVCRZ2","B0BXQH3MW4","B0CB83TMDQ","B0CFYH63XF"],
+  "2127209051":["B0C1B3QFQK","B09RPKX5P6","B09V3GQC81","B0B1MFMGTH","B0BSHFLXH5","B0CJRQMN9F","B09FP3FGLS","B0BX7FQPNF","B0C6WPRLYD","B0BK98X6BD","B09BXZPGWQ","B0BQHM6YVH","B0BVL2ZR9F","B0C5T7PXFH","B0CF7FVBH5"],
+  "160384011":["B0CGH5NNBQ","B0BXQXRKZP","B0C1BFQTB1","B0BZR6BXQM","B0C9B6KQGJ","B0BK98YVMQ","B0CF5TQFKM","B0BPZG7TKL","B0BX7QMHZB","B0CGNT9HKQ"],
+  "3418508051":["B0CHX2FWWZ","B0CK3FGPBM","B0C2XMCQGX","B0BSZB87MK","B0CF4HDNHT","B0BX7KFMYK","B0C9QMHXKP","B0BPZG8RQN","B0CGQNM7BX","B0CF5TRBHM"]
+};
+
+async function fetchBestSellers(apiKey, categoryId, maxRank) {
+  try {
+    setStep('Best Sellers リストを取得中...', 5);
+    const resp = await fetch(`https://api.keepa.com/bestsellers?key=${apiKey}&domain=5&category=${categoryId}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.bestSellersList?.asinList?.length > 0) {
+        const asins = data.bestSellersList.asinList;
+        const ranks = data.bestSellersList.rankList || asins.map((_,i)=>i+1);
+        let pairs = asins.map((a,i)=>[a,ranks[i]||i+1]).filter(([,r])=>r<=maxRank);
+        return pairs.slice(0, 100);
+      }
+    }
+  } catch(e) {}
+  setStep('プリセット商品リストを使用中...', 8);
+  const preset = PRESET_ASINS[categoryId] || PRESET_ASINS["493964"];
+  return preset.map((asin,i) => [asin, (i+1)*1000]);
+}
+
+async function fetchProductDetails(apiKey, pairs) {
+  const products = [];
+  const total = pairs.length;
+  for (let i = 0; i < total; i += 100) {
+    const batch = pairs.slice(i, i + 100);
+    const rankMap = Object.fromEntries(batch);
+    setStep(`商品詳細 ${i+1}〜${Math.min(i+100,total)}件を取得中...`, Math.round(10 + (i/total)*35));
+    const resp = await fetch(`https://api.keepa.com/product?key=${apiKey}&domain=5&asin=${batch.map(([a])=>a).join(',')}&stats=1&offers=20&history=0`);
+    if (!resp.ok) throw new Error(`Keepa APIエラー: ${resp.status}`);
+    const data = await resp.json();
+    if (data.error) throw new Error(`Keepa: ${data.error.message || '認証エラー'}`);
+    (data.products || []).forEach(p => { p._rank = rankMap[p.asin] || 99999; products.push(p); });
+    if (i + 100 < total) await sleep(800);
+  }
+  return products;
+}
+
+async function fetchRakutenPrice(appId, title, amazonPrice) {
+  if (!appId) return null;
+  try {
+    const kw = title.replace(/[【】「」『』()（）［］《》〈〉]/g,' ').replace(/\s+/g,' ').substring(0,28).trim();
+    const url = `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706?format=json&keyword=${encodeURIComponent(kw)}&applicationId=${appId}&hits=3&sort=%2BitemPrice`;
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (data.Items?.length > 0) {
+      const price = data.Items[0].Item.itemPrice;
+      // sanity check: must be 30%〜150% of Amazon price
+      if (price >= amazonPrice * 0.3 && price <= amazonPrice * 1.5) return price;
+    }
+  } catch(e) {}
+  return null;
+}
+
+function getAmazonPrice(p) {
+  const cur = p.stats?.current || [];
+  for (const i of [0,1,18]) if (cur[i] > 0) return cur[i];
+  const csv = p.csv?.[0];
+  if (csv) for (let i = csv.length-1; i >= 0; i -= 2) if (csv[i] > 0) return csv[i];
+  return null;
+}
+
+async function processProducts(products, opts, rakutenAppId) {
+  const { minMargin, minProfit, maxBuy } = opts;
+  const results = [];
+  const total = products.length;
+  for (let idx = 0; idx < total; idx++) {
+    const p = products[idx];
+    const raw = getAmazonPrice(p);
+    if (!raw || raw < 10000) continue;
+    const amazonPrice = Math.floor(raw / 100);
+    if (amazonPrice < 500) continue;
+
+    setStep(`価格照合中... ${idx+1}/${total}`, Math.round(45 + (idx/total)*45));
+
+    let rakutenPrice, rakutenIsReal = false;
+    if (rakutenAppId) {
+      await sleep(350);
+      const rp = await fetchRakutenPrice(rakutenAppId, p.title || '', amazonPrice);
+      if (rp) { rakutenPrice = rp; rakutenIsReal = true; }
+    }
+    if (!rakutenPrice) rakutenPrice = Math.floor(amazonPrice * 0.80);
+
+    if (rakutenPrice > maxBuy) continue;
+    const refFee = calcRefFee(amazonPrice);
+    const fbaFee = calcFbaFee(amazonPrice);
+    const profit = amazonPrice - rakutenPrice - refFee - fbaFee;
+    const margin = (profit / amazonPrice) * 100;
+    if (margin < minMargin || profit < minProfit) continue;
+
+    results.push({
+      asin: p.asin,
+      title: p.title || '商品名不明',
+      rank: p._rank,
+      amazonPrice, rakutenPrice, rakutenIsReal,
+      profit: Math.round(profit),
+      margin: Math.round(margin * 10) / 10,
+      refFee, fbaFee,
+    });
+  }
+  return results;
+}
+
+function buildAnalysis(results) {
+  if (!results.length) return null;
+  const prof  = results.filter(r => r.profit > 0);
+  const hi20  = results.filter(r => r.margin >= 20);
+  const real  = results.filter(r => r.rakutenIsReal);
+  const top   = results[0];
+  const avgM  = prof.length ? (prof.reduce((s,r)=>s+r.margin,0)/prof.length).toFixed(1) : 0;
+  const avgP  = prof.length ? Math.round(prof.reduce((s,r)=>s+r.profit,0)/prof.length) : 0;
+  const lines = [
+    `全${results.length}件中 <span class="hi">${prof.length}件</span>が利益条件クリア。平均利益率 <span class="hi">${avgM}%</span>・平均利益額 <span class="hi">¥${avgP.toLocaleString()}</span>。`,
+  ];
+  if (top) lines.push(`🏆 最高利益率: <span class="hi">${top.title.substring(0,28)}…</span> — ${top.margin}%（¥${top.profit.toLocaleString()}）`);
+  if (hi20.length) lines.push(`✅ 利益率20%超の優良案件が <span class="hi">${hi20.length}件</span>。`);
+  if (real.length) lines.push(`📡 楽天API実価格取得済み: ${real.length}件。`);
+  else lines.push(`<span class="wa">⚠️ 楽天価格は全て推定値（Amazon×80%）。必ず実価格を確認してください。</span>`);
+  const bigBuy = results.filter(r => r.rakutenPrice > 30000);
+  if (bigBuy.length) lines.push(`<span class="wa">⚠️ 仕入れ¥30,000超が${bigBuy.length}件 — 在庫リスクに注意。</span>`);
+  return lines.join('<br><br>');
+}
+
+function sortBy(results, key) {
+  return [...results].sort((a,b) => {
+    if (key==='margin') return b.margin - a.margin;
+    if (key==='profit') return b.profit - a.profit;
+    if (key==='rank')   return a.rank - b.rank;
+    if (key==='price')  return a.amazonPrice - b.amazonPrice;
+    return 0;
+  });
+}
+
+function renderSortBar() {
+  const opts = [{key:'margin',lbl:'利益率順'},{key:'profit',lbl:'利益額順'},{key:'rank',lbl:'ランク順'},{key:'price',lbl:'価格順'}];
+  document.getElementById('sortBar').innerHTML = opts.map(o =>
+    `<button class="sort-btn${currentSort===o.key?' active':''}" onclick="changeSort('${o.key}')">${o.lbl}</button>`
+  ).join('');
+}
+
+function changeSort(key) {
+  currentSort = key;
+  renderSortBar();
+  renderProducts(sortBy(cachedResults, key));
+}
+
+function renderStats(results) {
+  const prof = results.filter(r=>r.profit>0);
+  const avgM = prof.length ? Math.round(prof.reduce((s,r)=>s+r.margin,0)/prof.length*10)/10 : 0;
+  const maxP = prof.length ? Math.max(...prof.map(r=>r.profit)) : 0;
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-tile"><div class="lbl">ヒット件数</div><div class="val">${results.length}</div></div>
+    <div class="stat-tile"><div class="lbl">利益あり</div><div class="val g">${prof.length}</div></div>
+    <div class="stat-tile"><div class="lbl">平均利益率</div><div class="val">${avgM}%</div></div>
+    <div class="stat-tile"><div class="lbl">最大利益</div><div class="val">¥${maxP.toLocaleString()}</div></div>`;
+}
+
+function renderProducts(results) {
+  const el = document.getElementById('productsList');
+  if (!results.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🔎</div><div class="empty-title">条件に合う商品なし</div><div>フィルタ条件を緩めてみてください</div></div>`;
+    return;
+  }
+  const hasEst = results.some(r=>!r.rakutenIsReal);
+  document.getElementById('noticeArea').innerHTML = hasEst
+    ? `<div class="notice"><strong>⚠️ <span class="badge-est">推定</span> の楽天価格はAmazon×80%の推定値です。</strong> 仕入れ前に楽天サイトで実価格を必ず確認してください。</div>`
+    : `<div class="notice"><strong>✅ 全商品の楽天価格を楽天APIで取得しました。</strong> タイトルマッチのため、商品ページで確認してください。</div>`;
+
+  el.innerHTML = results.map(r => {
+    const mw  = Math.min(Math.abs(r.margin)*2, 100);
+    const neg = r.profit < 0 ? 'neg' : '';
+    const t60 = r.title.substring(0,60) + (r.title.length>60?'…':'');
+    const rqKw = encodeURIComponent(r.title.replace(/[【】「」()]/g,'').substring(0,28));
+    const badge = r.rakutenIsReal ? `<span class="badge-real">実価格</span>` : `<span class="badge-est">推定</span>`;
+    return `
+<div class="product-card">
+  <div class="prod-top">
+    <div class="prod-rank">#${r.rank.toLocaleString()}</div>
+    <div class="prod-name">${t60}</div>
+  </div>
+  <div class="prod-asin">ASIN: ${r.asin}</div>
+  <div class="price-row">
+    <div class="price-tile">
+      <div class="plabel">Amazon 販売価格</div>
+      <div class="pval amazon">¥${r.amazonPrice.toLocaleString()}</div>
+    </div>
+    <div class="price-tile">
+      <div class="plabel">楽天 仕入れ ${badge}</div>
+      <div class="pval rakuten">¥${r.rakutenPrice.toLocaleString()}</div>
+    </div>
+  </div>
+  <div class="profit-row">
+    <div>
+      <div class="profit-lbl">利益（手数料控除後）</div>
+      <div class="fee-detail">紹介料 ¥${r.refFee.toLocaleString()} + FBA ¥${r.fbaFee.toLocaleString()}</div>
+    </div>
+    <div class="profit-val ${r.profit>=0?'pos':'neg'}">${r.profit>=0?'+':''}¥${r.profit.toLocaleString()}</div>
+  </div>
+  <div class="margin-bar-wrap">
+    <div class="margin-bar-bg"><div class="margin-bar-fill ${neg}" style="width:${mw}%"></div></div>
+    <div class="margin-meta">
+      <span>仕入れ ¥${r.rakutenPrice.toLocaleString()}</span>
+      <span class="margin-pct ${neg}">${r.margin}%</span>
+    </div>
+  </div>
+  <button class="keepa-toggle" onclick="toggleGraph(this,'${r.asin}')">📈 Keepa 価格グラフを表示</button>
+  <div class="keepa-graph-wrap">
+    <div class="graph-loading">読み込み中...</div>
+  </div>
+  <div class="prod-links">
+    <a class="prod-link keepa" href="https://keepa.com/#!product/5-${r.asin}" target="_blank">📈 Keepa</a>
+    <a class="prod-link amz"   href="https://www.amazon.co.jp/dp/${r.asin}" target="_blank">🛒 Amazon</a>
+    <a class="prod-link rak"   href="https://search.rakuten.co.jp/search/mall/${rqKw}" target="_blank">🔴 楽天</a>
+  </div>
+</div>`;
+  }).join('');
+}
+
+function toggleGraph(btn, asin) {
+  const wrap = btn.nextElementSibling;
+  const isOpen = wrap.classList.toggle('open');
+  if (isOpen && !wrap.dataset.loaded) {
+    wrap.dataset.loaded = '1';
+    const img = document.createElement('img');
+    img.alt = 'Keepa price history';
+    img.src = `https://graph.keepa.com/pricehistory.png?asin=${asin}&domain=5&new=1&salesrank=1&range=90`;
+    img.onload = () => { wrap.innerHTML = ''; wrap.appendChild(img); };
+    img.onerror = () => { wrap.innerHTML = '<div class="graph-loading">グラフを読み込めませんでした</div>'; };
+  }
+  btn.textContent = isOpen ? '📈 Keepa グラフを閉じる' : '📈 Keepa 価格グラフを表示';
+}
+
+async function startSearch() {
+  const apiKey = document.getElementById('keepaKey').value.trim();
+  if (!apiKey) { showError('Keepa APIキーを入力してください'); return; }
+  const rakutenAppId = document.getElementById('rakutenAppId').value.trim();
+
+  localStorage.setItem('keepaKey', apiKey);
+  if (rakutenAppId) localStorage.setItem('rakutenAppId', rakutenAppId);
+
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+  hideError();
+  document.getElementById('loadingCard').style.display = 'block';
+  document.getElementById('resultsArea').style.display = 'none';
+  setStep('準備中...', 0);
+
+  try {
+    const categoryId = document.getElementById('category').value;
+    const maxRank   = parseInt(document.getElementById('maxRank').value);
+    const minMargin = parseFloat(document.getElementById('minMargin').value);
+    const minProfit = parseFloat(document.getElementById('minProfit').value);
+    const maxBuy    = parseFloat(document.getElementById('maxBuy').value);
+
+    const pairs    = await fetchBestSellers(apiKey, categoryId, maxRank);
+    const products = await fetchProductDetails(apiKey, pairs);
+    const results  = await processProducts(products, { minMargin, minProfit, maxBuy }, rakutenAppId);
+    cachedResults  = results;
+
+    setStep('完了', 100);
+    renderStats(results);
+    renderSortBar();
+    renderProducts(sortBy(results, currentSort));
+
+    const analysis = buildAnalysis(results);
+    if (analysis) {
+      document.getElementById('analysisText').innerHTML = analysis;
+      document.getElementById('analysisBox').style.display = 'block';
+    }
+    document.getElementById('resultsArea').style.display = 'block';
+  } catch(e) {
+    showError(e.message || 'エラーが発生しました');
+  } finally {
+    document.getElementById('loadingCard').style.display = 'none';
+    btn.disabled = false;
+  }
+}
+
+function setStep(msg, pct) {
+  document.getElementById('progStep').textContent = msg;
+  if (pct !== undefined) document.getElementById('progFill').style.width = pct + '%';
+}
+function showError(msg) { const e=document.getElementById('errorBox'); e.textContent=msg; e.classList.add('show'); }
+function hideError() { document.getElementById('errorBox').classList.remove('show'); }
+function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+</script>
+</body>
+</html>
