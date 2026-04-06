@@ -270,9 +270,9 @@ async function fetchProductFinder(apiKey, opts) {
   const base = { current_SALES_lte: maxRank, perPage: 100, page: 0 };
   const attempts = [
     // 試行1: 全条件
-    { ...base, current_NEW_gte: minPrice * 100, current_NEW_lte: maxPrice * 100, current_COUNT_NEW_gte: minNewOffers, current_COUNT_REVIEWS_gte: minReviews, ...(amazonOutOfStock ? { availabilityAmazon: [-1] } : {}) },
+    { ...base, current_NEW_gte: minPrice, current_NEW_lte: maxPrice, current_COUNT_NEW_gte: minNewOffers, current_COUNT_REVIEWS_gte: minReviews, ...(amazonOutOfStock ? { availabilityAmazon: [-1] } : {}) },
     // 試行2: レビュー・出品数条件を外す
-    { ...base, current_NEW_gte: minPrice * 100, current_NEW_lte: maxPrice * 100 },
+    { ...base, current_NEW_gte: minPrice, current_NEW_lte: maxPrice },
     // 試行3: 価格条件も外してランクのみ
     { ...base },
   ];
@@ -412,9 +412,8 @@ async function processProducts(products, opts, rakutenAppId) {
   for (let idx = 0; idx < total; idx++) {
     const p = products[idx];
     const raw = getAmazonPrice(p);
-    if (!raw || raw < 10000) { noPriceCount++; continue; }
-    const amazonPrice = Math.floor(raw / 100);
-    if (amazonPrice < 500) { noPriceCount++; continue; }
+    if (!raw || raw < 500) { noPriceCount++; continue; }
+    const amazonPrice = raw;
 
     setStep(`価格照合中... ${idx+1}/${total}`, Math.round(45 + (idx/total)*45));
 
