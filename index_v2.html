@@ -266,24 +266,15 @@ async function fetchProductFinder(apiKey, opts) {
   const { categoryId, maxRank, minPrice, maxPrice, minNewOffers, minReviews, amazonOutOfStock } = opts;
   setStep('Product Finder で商品を絞り込み中...', 5);
 
-  const selection = {
-    categories_include: [parseInt(categoryId)],
-    current_SALES_lte: maxRank,
-    current_NEW_gte: minPrice * 100,
-    current_NEW_lte: maxPrice * 100,
-    current_COUNT_NEW_gte: minNewOffers,
-    current_COUNT_REVIEWS_gte: minReviews,
-    sort: [["current_SALES", "asc"]],
-    perPage: 100,
-    page: 0,
-  };
-  if (amazonOutOfStock) selection.availabilityAmazon = [-1];
-
   // 条件を段階的に緩めて再試行
+  const base = { current_SALES_lte: maxRank, perPage: 100, page: 0 };
   const attempts = [
-    { ...selection },
-    { ...selection, current_COUNT_REVIEWS_gte: 0, current_COUNT_NEW_gte: 1 },
-    { categories_include: selection.categories_include, current_SALES_lte: maxRank * 2, current_NEW_gte: selection.current_NEW_gte, current_NEW_lte: selection.current_NEW_lte, sort: selection.sort, perPage: 100, page: 0 },
+    // 試行1: 全条件
+    { ...base, current_NEW_gte: minPrice * 100, current_NEW_lte: maxPrice * 100, current_COUNT_NEW_gte: minNewOffers, current_COUNT_REVIEWS_gte: minReviews, ...(amazonOutOfStock ? { availabilityAmazon: [-1] } : {}) },
+    // 試行2: レビュー・出品数条件を外す
+    { ...base, current_NEW_gte: minPrice * 100, current_NEW_lte: maxPrice * 100 },
+    // 試行3: 価格条件も外してランクのみ
+    { ...base },
   ];
 
   let lastError = '';
