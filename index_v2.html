@@ -266,34 +266,23 @@ async function fetchProductFinder(apiKey, opts) {
   const { categoryId, maxRank, minPrice, maxPrice, minNewOffers, minReviews, amazonOutOfStock } = opts;
   setStep('Product Finder で商品を絞り込み中...', 5);
 
-  // 価格はセント単位（円×100）
-  const base = {
-    rootCategory: categoryId,
-    current_SALES_lte: maxRank,
-    perPage: 100,
-    page: 0,
-    sort: [["current_SALES", "asc"]],
-  };
+  // 段階的に条件を緩めて試行
   const attempts = [
-    // 試行1: 全条件
-    { ...base, current_NEW_gte: minPrice * 100, current_NEW_lte: maxPrice * 100, current_COUNT_NEW_gte: minNewOffers, current_COUNT_REVIEWS_gte: minReviews },
-    // 試行2: レビュー・出品数を外す
-    { ...base, current_NEW_gte: minPrice * 100, current_NEW_lte: maxPrice * 100 },
-    // 試行3: 価格条件も外す
-    { ...base },
+    // 試行1: ランク+価格+出品数+レビュー
+    { perPage: 100, page: 0, current_SALES_lte: maxRank, current_NEW_gte: minPrice * 100, current_NEW_lte: maxPrice * 100, current_COUNT_NEW_gte: minNewOffers, current_COUNT_REVIEWS_gte: minReviews },
+    // 試行2: ランク+価格のみ
+    { perPage: 100, page: 0, current_SALES_lte: maxRank, current_NEW_gte: minPrice * 100, current_NEW_lte: maxPrice * 100 },
+    // 試行3: ランクのみ
+    { perPage: 100, page: 0, current_SALES_lte: maxRank },
   ];
 
   let lastError = '';
   for (let i = 0; i < attempts.length; i++) {
     try {
       const sel = attempts[i];
-      if (i > 0) setStep(`条件を緩めて再検索中 (試行${i+1}/3)...`, 6 + i*2);
-      const url = `https://api.keepa.com/query?key=${apiKey}&domain=5`;
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `selection=${encodeURIComponent(JSON.stringify(sel))}`
-      });
+      if (i > 0) setStep(`条件を緩めて再検索中 (試行${i+1}/3)...`, 6 + i * 2);
+      const url = `https://api.keepa.com/query?key=${apiKey}&domain=5&selection=${encodeURIComponent(JSON.stringify(sel))}`;
+      const resp = await fetch(url);
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${JSON.stringify(data.error ?? data)}`);
       if (data.error) throw new Error(`Keepaエラー: ${JSON.stringify(data.error)}`);
