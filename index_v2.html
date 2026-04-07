@@ -253,13 +253,39 @@ function calcFbaFee(price) {
 }
 function calcRefFee(price) { return Math.round(price * 0.10); }
 
-// ── Preset ASINs (fallback) ──
+// ── Preset ASINs (fallback) ── 2026年4月 Amazon Japan 実ランキングから取得
 const PRESET_ASINS = {
-  "672":["B0CHWGK7RB","B09G9FPHY6","B09B2KYFSN","B0CX38V9VX","B0CLVW79ZM","B0BW35QHFM","B0C37YWFGL","B0CK35SK2Y","B0CXHKFKC2","B0BX17JWST","B0BK1VD3BN","B0CJGK9WHT","B09W2VFLXD","B0BN3GFN98","B0C1J1CC4H","B0BYW9XGLB","B08N5WRWNW","B09CQKYZRP","B0B4MJ4QV2","B0BZRMYBQS","B0BSHF7WHW","B07WDLHJWF","B09X7FXHVD","B0C2M5T8FW","B0CL7GCNRF","B0BQRGGQ5B","B0CG5HH7TF","B09BBBQ3GK","B0C9G3CKD8","B0BJ3BQQL8"],
-  "493964":["B0CX4H2C3G","B0B6BP9PV4","B09MFMTMPD","B0C1H26C7M","B0BCF3VL1N","B0BG94R3NZ","B0BHZJ5YQY","B09G9HD5KW","B0CF5BWKT6","B0CGNNF74W","B0C7M4KKWZ","B0BRK3GNFB","B09V3ZKKYN","B0CG9XPVH9","B0BRJPLTSP","B0BG3GCPVX","B0C2GFHQ5T","B0BYT5BZJV","B0C5M5FKLB","B0CL7DZD9P","B08KH79VHF","B09FNZ3RQ1","B0BQTQ29BN","B0C9B9QXHM","B0BKRT9XVY","B0CGQ3QVFC","B0B6BVCRZ2","B0BXQH3MW4","B0CB83TMDQ","B0CFYH63XF"],
-  "2127209051":["B0C1B3QFQK","B09RPKX5P6","B09V3GQC81","B0B1MFMGTH","B0BSHFLXH5","B0CJRQMN9F","B09FP3FGLS","B0BX7FQPNF","B0C6WPRLYD","B0BK98X6BD","B09BXZPGWQ","B0BQHM6YVH","B0BVL2ZR9F","B0C5T7PXFH","B0CF7FVBH5"],
-  "160384011":["B0CGH5NNBQ","B0BXQXRKZP","B0C1BFQTB1","B0BZR6BXQM","B0C9B6KQGJ","B0BK98YVMQ","B0CF5TQFKM","B0BPZG7TKL","B0BX7QMHZB","B0CGNT9HKQ"],
-  "3418508051":["B0CHX2FWWZ","B0CK3FGPBM","B0C2XMCQGX","B0BSZB87MK","B0CF4HDNHT","B0BX7KFMYK","B0C9QMHXKP","B0BPZG8RQN","B0CGQNM7BX","B0CF5TRBHM"]
+  // 家電全般: 売れ筋ランキング上位（Fire TV, Echo, Dyson, Anker, Hisense TVなど）
+  "672":[
+    "B0CN415PTV","B0F7ZF7W9P","B09B2PF8S4","B0DZ2NNJVC","B0FQFQDN6K",
+    "B0DYNVXCGW","B0FNRMBR4X","B0BMPTDGDS","B071X3FCNK","B0CL8S8CS5",
+    "B0CQX67KTW","B0G1LYSFK9","B0DZ82QWKP","B093L5CMMT","B08PTPTMH5",
+    "B0DCFRR3K7","B0DCFPWDK5","B0DCFV57T6","B0GBRTRBGY","B0FPWH82G1",
+    "B0FLP9ZRHF","B0FSDSB4NB","B0F3XXNLSY","B0DW3W5B75","B0DW42C2CX",
+    "B0D9Y1J4NH","B0BC142H1L","B07BK6696F","B07YG7RNF2","B0DJQMPKRH"
+  ],
+  // パソコン・周辺機器: Logicool, Anker, KIOXIA, TP-Link, Buffaloなど
+  "493964":[
+    "B08PTPTMH5","B093L5CMMT","B0DZ82QWKP","B0BC142H1L","B0D9Y1J4NH",
+    "B0GJC5JGX3","B0CBPF2ZJ1","B08PTP3HKJ","B07V1XJ56J","B07BK6696F",
+    "B07YG7RNF2","B0DJQMPKRH","B08K2CHMWK","B0CL8S8CS5","B0CQX67KTW",
+    "B0CN415PTV","B0F7ZF7W9P","B09B2PF8S4","B0FQFQDN6K","B0BMPTDGDS"
+  ],
+  // カメラ: Fujifilm, Sony, OM SYSTEM, Canon, Panasonic, RICOHなど
+  "2127209051":[
+    "B09ZRN1N3Z","B0CFKR77FY","B0CGLZZ9GC","B0D97JF6J4","B0D97J4BDT",
+    "B0FWRPQDRT","B0DQK8N4SC","B0D5LTD9T6","B0C662DTFB","B09FYB45XY"
+  ],
+  // テレビ: Hisense, REGZA, TCLなど
+  "160384011":[
+    "B0DCFRR3K7","B0DCFPWDK5","B0DCFV57T6","B0GBRTRBGY","B0FPWH82G1",
+    "B0FLP9ZRHF","B0FSDSB4NB","B0F3XXNLSY","B0DW3W5B75","B0DW42C2CX"
+  ],
+  // スマートフォン: iPhone, Samsung, Motorola, Xiaomiなど
+  "3418508051":[
+    "B0FQFPJCW1","B0GQVHLG38","B0FDKVB871","B0FJXY48HP","B0DYJHD1DM",
+    "B0G2KS41PJ","B0GK96HVP1","B0FBRJ6DFY","B0G4MDRT8N","B0FQG19YTX"
+  ]
 };
 
 async function fetchProductFinder(apiKey, opts) {
@@ -391,16 +417,19 @@ async function fetchRakutenPrice(appId, title, amazonPrice, janCode) {
 }
 
 function getAmazonPrice(p) {
-  // stats.current: index 1=新品最安値, 11=買い物かご, 18=FBA新品, 0=Amazon直販
+  // stats.current: 0=Amazon直販, 1=新品, 2=中古, 3=ランク, 4=コレクタブル,
+  //   7=新品FBM, 11=新品BuyBox, 14=新品FBA, 18=新品PrimeExclusive
   const cur = p.stats?.current;
   if (cur) {
-    for (const i of [1, 11, 18, 0]) {
-      if (cur[i] && cur[i] > 0) return cur[i];
+    // 優先順: BuyBox > 新品FBA > 新品 > Amazon直販 > 新品FBM > その他
+    for (const i of [11, 14, 1, 0, 7, 17, 18]) {
+      const v = cur[i];
+      if (v && v > 0) return v;
     }
   }
-  // フォールバック: CSVヒストリ（history=1時）
+  // フォールバック: CSVヒストリ（直近の有効価格）
   if (p.csv) {
-    for (const idx of [1, 11, 18, 0]) {
+    for (const idx of [11, 14, 1, 0, 7]) {
       const csv = p.csv[idx];
       if (!csv || csv.length < 2) continue;
       for (let i = csv.length - 1; i >= 1; i -= 2) {
