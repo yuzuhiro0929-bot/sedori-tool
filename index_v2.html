@@ -131,7 +131,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="header-icon">🔍</div>
   <h1><span class="c">電脳</span><span class="o">せどり</span> <span class="g">Pro</span></h1>
   <div class="tagline">Keepa × Yahoo Shopping で仕入れ価格差を自動リサーチ</div>
-  <div style="font-size:10px;color:var(--dim);margin-top:4px">v2.7.0</div>
+  <div style="font-size:10px;color:var(--dim);margin-top:4px">v2.8.0</div>
 </header>
 
 <div class="card">
@@ -142,7 +142,11 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
   <div class="field">
     <label>Yahoo Shopping Client ID<span class="opt">仕入れ価格取得に必須</span></label>
-    <input type="text" id="rakutenAppId" placeholder="Yahoo Shopping API Client ID" autocomplete="off">
+    <div style="display:flex;gap:8px">
+      <input type="text" id="rakutenAppId" placeholder="Yahoo Shopping API Client ID" autocomplete="off" style="flex:1">
+      <button onclick="testYahooApi()" style="padding:0 14px;background:rgba(0,229,255,.15);border:1px solid rgba(0,229,255,.4);color:var(--cyan);border-radius:8px;cursor:pointer;font-size:12px;white-space:nowrap">接続テスト</button>
+    </div>
+    <div id="yahooTestResult" style="font-size:12px;margin-top:6px"></div>
   </div>
   <div class="card-title" style="margin-top:18px">🔎 検索条件</div>
   <div class="field">
@@ -243,6 +247,28 @@ window.addEventListener('DOMContentLoaded', () => {
   if (k) document.getElementById('keepaKey').value = k;
   if (r) document.getElementById('rakutenAppId').value = r;
 });
+
+async function testYahooApi() {
+  const appId = document.getElementById('rakutenAppId').value.trim();
+  const el = document.getElementById('yahooTestResult');
+  if (!appId) { el.innerHTML = '<span style="color:#ff5252">⚠️ Client IDを入力してください</span>'; return; }
+  el.innerHTML = '<span style="color:var(--dim)">テスト中...</span>';
+  try {
+    const url = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${appId}&query=Sony&results=3`;
+    const resp = await fetch(url);
+    const data = await resp.json().catch(() => ({}));
+    console.log('[YahooTest]', resp.status, JSON.stringify(data).substring(0, 300));
+    if (resp.ok && data.hits?.length > 0) {
+      el.innerHTML = `<span style="color:#3ddc84">✅ 接続OK！ (${data.totalResultsAvailable}件ヒット)</span>`;
+    } else if (data.Error) {
+      el.innerHTML = `<span style="color:#ff5252">❌ APIエラー: ${data.Error.Message} (code:${data.Error.Code})</span>`;
+    } else {
+      el.innerHTML = `<span style="color:#ff5252">❌ HTTP ${resp.status} / hits=${data.hits?.length ?? 0}</span><br><span style="font-size:10px;color:var(--dim)">${JSON.stringify(data).substring(0,100)}</span>`;
+    }
+  } catch(e) {
+    el.innerHTML = `<span style="color:#ff5252">❌ 通信エラー: ${e.message}</span>`;
+  }
+}
 
 // ── FBA fee (approximate) ──
 function calcFbaFee(price) {
@@ -374,8 +400,9 @@ async function yahooSearch(appId, keyword, amazonPrice, useJan = false) {
     const param = useJan ? `jan_code=${encodeURIComponent(keyword)}` : `query=${encodeURIComponent(keyword)}`;
     const url = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${appId}&${param}&results=30&sort=%2Bprice`;
     const resp = await fetch(url);
-    const data = await resp.json();
-    console.log(`[Yahoo] keyword="${keyword}" status=${resp.status} hits=${data.hits?.length ?? 0}`);
+    let data;
+    try { data = await resp.json(); } catch(je) { data = {}; }
+    console.log(`[Yahoo] kw="${keyword.substring(0,20)}" status=${resp.status} hits=${data.hits?.length ?? 'none'} totalResults=${data.totalResultsAvailable ?? '-'} err=${data.Error?.Message ?? '-'}`);
     if (!resp.ok || !data.hits?.length) return null;
     const allItems = data.hits;
     // 価格フィルター: Amazon価格の20%〜180%
@@ -389,7 +416,10 @@ async function yahooSearch(appId, keyword, amazonPrice, useJan = false) {
     const freeCount = items.filter(i => i.shipping?.code === 0).length;
     const shipping = freeCount >= items.length / 2 ? 'free' : 'paid';
     return { price, shipping, itemUrl };
-  } catch(e) { return null; }
+  } catch(e) {
+    console.error(`[Yahoo] 例外: ${e.message} (keyword="${keyword.substring(0,20)}")`);
+    return null;
+  }
 }
 
 async function fetchRakutenPrice(appId, title, amazonPrice, janCode) {
