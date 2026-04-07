@@ -131,6 +131,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="header-icon">🔍</div>
   <h1><span class="c">電脳</span><span class="o">せどり</span> <span class="g">Pro</span></h1>
   <div class="tagline">Keepa × Yahoo Shopping で仕入れ価格差を自動リサーチ</div>
+  <div style="font-size:10px;color:var(--dim);margin-top:4px">v2.6.0</div>
 </header>
 
 <div class="card">
@@ -448,7 +449,8 @@ async function processProducts(products, opts, rakutenAppId) {
   for (let idx = 0; idx < total; idx++) {
     const p = products[idx];
     const raw = getAmazonPrice(p);
-    if (!raw || raw < 500) { noPriceCount++; continue; }
+    console.log(`[price] ${p.asin} raw=${raw} stats=${JSON.stringify(p.stats?.current?.slice(0,6))}`);
+    if (!raw || raw <= 0) { noPriceCount++; continue; }
     const amazonPrice = raw;
 
     setStep(`価格照合中... ${idx+1}/${total}`, Math.round(45 + (idx/total)*45));
@@ -480,10 +482,19 @@ async function processProducts(products, opts, rakutenAppId) {
       refFee, fbaFee, rakutenMethod, rakutenShipping, rakutenUrl,
     });
   }
+  const yahooMissCount = total - noPriceCount - results.length;
+  console.log(`[result] total=${total} noPriceCount=${noPriceCount} yahooMiss=${yahooMissCount} results=${results.length}`);
   if (noPriceCount === total && total > 0) {
     const sample = products[0];
-    const debug = `csv=${JSON.stringify(sample?.csv?.[1]?.slice(-4))}, stats=${JSON.stringify(sample?.stats?.current?.slice(0,5))}`;
-    throw new Error(`${total}件取得しましたが全商品の価格データが空でした。[debug: ${debug}]`);
+    const debugStats = JSON.stringify(sample?.stats?.current?.slice(0,8));
+    const debugCsv0  = JSON.stringify(sample?.csv?.[0]?.slice(-4));
+    const debugCsv1  = JSON.stringify(sample?.csv?.[1]?.slice(-4));
+    throw new Error(`Keepaから価格データが取得できませんでした。[stats=${debugStats}, csv0=${debugCsv0}, csv1=${debugCsv1}]\n※ブラウザのコンソールで詳細を確認してください。`);
+  }
+  if (results.length === 0 && noPriceCount < total) {
+    // Keepa価格はあるがYahoo価格が取れなかった場合
+    const withPrice = total - noPriceCount;
+    throw new Error(`Yahoo Shopping価格を取得できた商品が0件でした。(Keepa価格あり:${withPrice}件 / Yahoo未取得:${yahooMissCount}件)\nYahoo Shopping Client IDが正しいか確認してください。`);
   }
   return results;
 }
