@@ -131,7 +131,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="header-icon">🔍</div>
   <h1><span class="c">電脳</span><span class="o">せどり</span> <span class="g">Pro</span></h1>
   <div class="tagline">Keepa × Yahoo Shopping で仕入れ価格差を自動リサーチ</div>
-  <div style="font-size:10px;color:var(--dim);margin-top:4px">v2.8.0</div>
+  <div style="font-size:10px;color:var(--dim);margin-top:4px">v2.9.0</div>
 </header>
 
 <div class="card">
@@ -253,21 +253,29 @@ async function testYahooApi() {
   const el = document.getElementById('yahooTestResult');
   if (!appId) { el.innerHTML = '<span style="color:#ff5252">⚠️ Client IDを入力してください</span>'; return; }
   el.innerHTML = '<span style="color:var(--dim)">テスト中...</span>';
-  try {
-    const url = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${appId}&query=Sony&results=3`;
-    const resp = await fetch(url);
-    const data = await resp.json().catch(() => ({}));
-    console.log('[YahooTest]', resp.status, JSON.stringify(data).substring(0, 300));
-    if (resp.ok && data.hits?.length > 0) {
-      el.innerHTML = `<span style="color:#3ddc84">✅ 接続OK！ (${data.totalResultsAvailable}件ヒット)</span>`;
-    } else if (data.Error) {
-      el.innerHTML = `<span style="color:#ff5252">❌ APIエラー: ${data.Error.Message} (code:${data.Error.Code})</span>`;
-    } else {
-      el.innerHTML = `<span style="color:#ff5252">❌ HTTP ${resp.status} / hits=${data.hits?.length ?? 0}</span><br><span style="font-size:10px;color:var(--dim)">${JSON.stringify(data).substring(0,100)}</span>`;
+  const apiUrl = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${appId}&query=Sony&results=3`;
+  const urls = [
+    { label: '直接', url: apiUrl },
+    { label: 'プロキシ', url: `https://corsproxy.io/?url=${encodeURIComponent(apiUrl)}` },
+  ];
+  for (const { label, url } of urls) {
+    try {
+      el.innerHTML = `<span style="color:var(--dim)">${label}で接続テスト中...</span>`;
+      const resp = await fetch(url);
+      const data = await resp.json().catch(() => ({}));
+      console.log(`[YahooTest][${label}]`, resp.status, JSON.stringify(data).substring(0, 300));
+      if (resp.ok && data.hits?.length > 0) {
+        el.innerHTML = `<span style="color:#3ddc84">✅ 接続OK！[${label}] (${data.totalResultsAvailable}件ヒット)</span>`;
+        return;
+      } else if (data.Error) {
+        el.innerHTML = `<span style="color:#ff5252">❌ APIエラー[${label}]: ${data.Error.Message} (code:${data.Error.Code})</span>`;
+        return;
+      }
+    } catch(e) {
+      console.warn(`[YahooTest][${label}] 失敗:`, e.message);
     }
-  } catch(e) {
-    el.innerHTML = `<span style="color:#ff5252">❌ 通信エラー: ${e.message}</span>`;
   }
+  el.innerHTML = `<span style="color:#ff5252">❌ 直接・プロキシ両方で通信失敗。Client IDを確認してください。</span>`;
 }
 
 // ── FBA fee (approximate) ──
@@ -395,31 +403,38 @@ function median(arr) {
   return s.length % 2 ? s[mid] : Math.round((s[mid-1] + s[mid]) / 2);
 }
 
+// CORS プロキシ経由でYahoo Shopping APIを呼び出す
 async function yahooSearch(appId, keyword, amazonPrice, useJan = false) {
-  try {
-    const param = useJan ? `jan_code=${encodeURIComponent(keyword)}` : `query=${encodeURIComponent(keyword)}`;
-    const url = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${appId}&${param}&results=30&sort=%2Bprice`;
-    const resp = await fetch(url);
-    let data;
-    try { data = await resp.json(); } catch(je) { data = {}; }
-    console.log(`[Yahoo] kw="${keyword.substring(0,20)}" status=${resp.status} hits=${data.hits?.length ?? 'none'} totalResults=${data.totalResultsAvailable ?? '-'} err=${data.Error?.Message ?? '-'}`);
-    if (!resp.ok || !data.hits?.length) return null;
-    const allItems = data.hits;
-    // 価格フィルター: Amazon価格の20%〜180%
-    let items = allItems.filter(i => i.price >= amazonPrice * 0.2 && i.price <= amazonPrice * 1.8);
-    if (!items.length) items = allItems;
-    const price = median(items.map(i => i.price));
-    // 最安値商品のURL
-    const cheapest = items.reduce((a, b) => a.price <= b.price ? a : b);
-    const itemUrl = cheapest.url || null;
-    // 送料無料判定
-    const freeCount = items.filter(i => i.shipping?.code === 0).length;
-    const shipping = freeCount >= items.length / 2 ? 'free' : 'paid';
-    return { price, shipping, itemUrl };
-  } catch(e) {
-    console.error(`[Yahoo] 例外: ${e.message} (keyword="${keyword.substring(0,20)}")`);
-    return null;
+  const param = useJan ? `jan_code=${encodeURIComponent(keyword)}` : `query=${encodeURIComponent(keyword)}`;
+  const apiUrl = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${appId}&${param}&results=30&sort=%2Bprice`;
+
+  // 直接 → CORSプロキシ の順で試す
+  const endpoints = [
+    apiUrl,
+    `https://corsproxy.io/?url=${encodeURIComponent(apiUrl)}`,
+  ];
+
+  for (const url of endpoints) {
+    try {
+      const resp = await fetch(url);
+      let data;
+      try { data = await resp.json(); } catch(je) { data = {}; }
+      console.log(`[Yahoo] kw="${keyword.substring(0,20)}" via=${url.startsWith('https://corsproxy') ? 'proxy' : 'direct'} status=${resp.status} hits=${data.hits?.length ?? 'none'} err=${data.Error?.Message ?? '-'}`);
+      if (!resp.ok || !data.hits?.length) continue;
+      const allItems = data.hits;
+      let items = allItems.filter(i => i.price >= amazonPrice * 0.2 && i.price <= amazonPrice * 1.8);
+      if (!items.length) items = allItems;
+      const price = median(items.map(i => i.price));
+      const cheapest = items.reduce((a, b) => a.price <= b.price ? a : b);
+      const itemUrl = cheapest.url || null;
+      const freeCount = items.filter(i => i.shipping?.code === 0).length;
+      const shipping = freeCount >= items.length / 2 ? 'free' : 'paid';
+      return { price, shipping, itemUrl };
+    } catch(e) {
+      console.warn(`[Yahoo] ${url.startsWith('https://corsproxy') ? 'proxy' : 'direct'} 失敗: ${e.message}`);
+    }
   }
+  return null;
 }
 
 async function fetchRakutenPrice(appId, title, amazonPrice, janCode) {
