@@ -131,7 +131,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="header-icon">🔍</div>
   <h1><span class="c">電脳</span><span class="o">せどり</span> <span class="g">Pro</span></h1>
   <div class="tagline">Keepa × Yahoo Shopping で仕入れ価格差を自動リサーチ</div>
-  <div style="font-size:10px;color:var(--dim);margin-top:4px">v2.9.0</div>
+  <div style="font-size:10px;color:var(--dim);margin-top:4px">v3.0.0</div>
 </header>
 
 <div class="card">
@@ -196,8 +196,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
   <div class="row2">
     <div class="field">
-      <label>最低利益額 (円)</label>
-      <input type="number" id="minProfit" value="1" step="100">
+      <label>最低利益額 (円) <span class="opt">0=全表示</span></label>
+      <input type="number" id="minProfit" value="0" step="100">
     </div>
     <div class="field">
       <label>仕入れ上限 (円)</label>
@@ -517,13 +517,16 @@ async function processProducts(products, opts, rakutenAppId) {
     }
     // 実価格が取れなかった商品はスキップ
     if (!rakutenPrice) continue;
-
     if (rakutenPrice > maxBuy) continue;
+
     const refFee = calcRefFee(amazonPrice);
     const fbaFee = calcFbaFee(amazonPrice);
     const profit = amazonPrice - rakutenPrice - refFee - fbaFee;
-    const margin = (profit / amazonPrice) * 100;
-    if (margin < minMargin || profit < minProfit) continue;
+    const margin = Math.round((profit / amazonPrice) * 1000) / 10;
+
+    // 利益率・利益額フィルター（minMarginまたはminProfitが設定されている場合のみ適用）
+    if (minMargin > 0 && margin < minMargin) continue;
+    if (minProfit > 0 && profit < minProfit) continue;
 
     results.push({
       asin: p.asin,
@@ -531,7 +534,7 @@ async function processProducts(products, opts, rakutenAppId) {
       rank: p._rank,
       amazonPrice, rakutenPrice, rakutenIsReal,
       profit: Math.round(profit),
-      margin: Math.round(margin * 10) / 10,
+      margin,
       refFee, fbaFee, rakutenMethod, rakutenShipping, rakutenUrl,
     });
   }
