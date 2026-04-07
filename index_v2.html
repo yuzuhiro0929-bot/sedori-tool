@@ -289,35 +289,43 @@ const PRESET_ASINS = {
   ]
 };
 
+// Keepa Japan カテゴリID対応表（ルート→サブカテゴリIDリスト）
+const KEEPA_JP_CATS = {
+  "672":        [492948, 3477491, 2151944051, 2151946051, 160384011, 3418508051, 2127209051, 672],
+  "493964":     [2127213051, 2127217051, 2127211051, 493964],
+  "2127209051": [2127209051, 2127211051],
+  "160384011":  [160384011, 492948],
+  "3418508051": [3418508051, 2151944051],
+};
+
 async function fetchProductFinder(apiKey, opts) {
-  const { categoryId, maxRank, minPrice, maxPrice } = opts;
+  const { categoryId, maxRank } = opts;
   setStep('Keepa ベストセラーリストを取得中...', 5);
 
-  // ── ① Keepa BestSellers API ──
-  try {
-    const url = `https://api.keepa.com/bestsellers?key=${apiKey}&domain=5&category=${categoryId}`;
-    const resp = await fetch(url);
-    const data = await resp.json().catch(() => ({}));
-    if (resp.ok && !data.error && data.bestSellersList?.length) {
-      // ランク上限でフィルター
-      const asins = data.bestSellersList
-        .filter((_, i) => (i + 1) <= maxRank)
-        .slice(0, 100);
-      if (asins.length > 0) {
-        setStep(`✅ ベストセラー ${asins.length}件を取得`, 10);
+  // ── ① Keepa BestSellers API（複数カテゴリIDを順番に試す）──
+  const tryCategories = KEEPA_JP_CATS[categoryId] || [parseInt(categoryId)];
+  for (const catId of tryCategories) {
+    try {
+      const url = `https://api.keepa.com/bestsellers?key=${apiKey}&domain=5&category=${catId}`;
+      const resp = await fetch(url);
+      const data = await resp.json().catch(() => ({}));
+      console.log(`[BestSellers] cat=${catId} resp_ok=${resp.ok} len=${data.bestSellersList?.length ?? 'none'}`);
+      if (resp.ok && !data.error && data.bestSellersList?.length) {
+        const asins = data.bestSellersList.slice(0, 100);
+        setStep(`✅ ベストセラー ${asins.length}件を取得 (cat:${catId})`, 10);
         await sleep(400);
         return asins.map((asin, idx) => [asin, idx + 1]);
       }
+    } catch(e) {
+      console.warn(`[BestSellers] cat=${catId} エラー:`, e.message);
     }
-    console.warn('[BestSellers] 結果なし:', data);
-  } catch(e) {
-    console.warn('[BestSellers] エラー:', e.message);
+    await sleep(300);
   }
 
   // ── ② プリセットASIN（フォールバック）──
   setStep('プリセットASINで検索中...', 8);
   const presets = PRESET_ASINS[categoryId] || PRESET_ASINS['672'];
-  console.log('[Fallback] プリセットASIN使用:', presets.length, '件');
+  console.log('[Fallback] プリセットASIN使用:', presets.length, '件 cat:', categoryId);
   return presets.map((asin, idx) => [asin, idx + 1]);
 }
 
