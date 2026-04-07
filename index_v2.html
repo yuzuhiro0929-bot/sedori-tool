@@ -130,7 +130,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <header>
   <div class="header-icon">🔍</div>
   <h1><span class="c">電脳</span><span class="o">せどり</span> <span class="g">Pro</span></h1>
-  <div class="tagline">Keepa × 楽天API で仕入れ価格差を自動リサーチ</div>
+  <div class="tagline">Keepa × Yahoo Shopping で仕入れ価格差を自動リサーチ</div>
 </header>
 
 <div class="card">
@@ -263,37 +263,35 @@ const PRESET_ASINS = {
 };
 
 async function fetchProductFinder(apiKey, opts) {
-  const { categoryId, maxRank, minPrice, maxPrice, minNewOffers, minReviews, amazonOutOfStock } = opts;
-  setStep('Product Finder で商品を絞り込み中...', 5);
+  const { categoryId, maxRank, minPrice, maxPrice } = opts;
+  setStep('Keepa ベストセラーリストを取得中...', 5);
 
-  // 段階的に条件を緩めて試行
-  const attempts = [
-    // 試行1: ランク+価格+出品数+レビュー
-    { perPage: 100, page: 0, current_SALES_lte: maxRank, current_NEW_gte: minPrice * 100, current_NEW_lte: maxPrice * 100, current_COUNT_NEW_gte: minNewOffers, current_COUNT_REVIEWS_gte: minReviews },
-    // 試行2: ランク+価格のみ
-    { perPage: 100, page: 0, current_SALES_lte: maxRank, current_NEW_gte: minPrice * 100, current_NEW_lte: maxPrice * 100 },
-    // 試行3: ランクのみ
-    { perPage: 100, page: 0, current_SALES_lte: maxRank },
-  ];
-
-  let lastError = '';
-  for (let i = 0; i < attempts.length; i++) {
-    try {
-      const sel = attempts[i];
-      if (i > 0) setStep(`条件を緩めて再検索中 (試行${i+1}/3)...`, 6 + i * 2);
-      const url = `https://api.keepa.com/query?key=${apiKey}&domain=5&selection=${encodeURIComponent(JSON.stringify(sel))}`;
-      const resp = await fetch(url);
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${JSON.stringify(data.error ?? data)}`);
-      if (data.error) throw new Error(`Keepaエラー: ${JSON.stringify(data.error)}`);
-      const asins = data.asinList || [];
-      if (asins.length === 0) { lastError = `totalResults:${data.totalResults ?? 0}`; continue; }
-      setStep(`✅ ${asins.length}件の候補を取得${i > 0 ? '（条件を緩めました）' : ''}`, 10);
-      await sleep(600);
-      return asins.slice(0, 100).map((asin, idx) => [asin, idx + 1]);
-    } catch(e) { lastError = e.message; }
+  // ── ① Keepa BestSellers API ──
+  try {
+    const url = `https://api.keepa.com/bestsellers?key=${apiKey}&domain=5&category=${categoryId}`;
+    const resp = await fetch(url);
+    const data = await resp.json().catch(() => ({}));
+    if (resp.ok && !data.error && data.bestSellersList?.length) {
+      // ランク上限でフィルター
+      const asins = data.bestSellersList
+        .filter((_, i) => (i + 1) <= maxRank)
+        .slice(0, 100);
+      if (asins.length > 0) {
+        setStep(`✅ ベストセラー ${asins.length}件を取得`, 10);
+        await sleep(400);
+        return asins.map((asin, idx) => [asin, idx + 1]);
+      }
+    }
+    console.warn('[BestSellers] 結果なし:', data);
+  } catch(e) {
+    console.warn('[BestSellers] エラー:', e.message);
   }
-  throw new Error(`商品が見つかりませんでした。(${lastError})`);
+
+  // ── ② プリセットASIN（フォールバック）──
+  setStep('プリセットASINで検索中...', 8);
+  const presets = PRESET_ASINS[categoryId] || PRESET_ASINS['672'];
+  console.log('[Fallback] プリセットASIN使用:', presets.length, '件');
+  return presets.map((asin, idx) => [asin, idx + 1]);
 }
 
 async function fetchProductDetails(apiKey, pairs) {
@@ -474,8 +472,8 @@ function buildAnalysis(results) {
   ];
   if (top) lines.push(`🏆 最高利益率: <span class="hi">${top.title.substring(0,28)}…</span> — ${top.margin}%（¥${top.profit.toLocaleString()}）`);
   if (hi20.length) lines.push(`✅ 利益率20%超の優良案件が <span class="hi">${hi20.length}件</span>。`);
-  if (real.length) lines.push(`📡 楽天API実価格取得済み: ${real.length}件。`);
-  else lines.push(`<span class="wa">⚠️ 楽天価格は全て推定値（Amazon×80%）。必ず実価格を確認してください。</span>`);
+  if (real.length) lines.push(`📡 Yahoo Shopping実価格取得済み: ${real.length}件。`);
+  else lines.push(`<span class="wa">⚠️ Yahoo Shopping価格は全て推定値（Amazon×80%）。必ず実価格を確認してください。</span>`);
   const bigBuy = results.filter(r => r.rakutenPrice > 30000);
   if (bigBuy.length) lines.push(`<span class="wa">⚠️ 仕入れ¥30,000超が${bigBuy.length}件 — 在庫リスクに注意。</span>`);
   return lines.join('<br><br>');
@@ -520,16 +518,16 @@ function renderProducts(results) {
   if (!results.length) {
     el.innerHTML = `<div class="empty">
       <div class="empty-icon">🔎</div>
-      <div class="empty-title">楽天で実価格が取れた商品なし</div>
-      <div style="margin-bottom:16px">楽天APIで価格を確認できた商品のみ表示しています。カテゴリや価格帯を変えて再検索してみてください</div>
+      <div class="empty-title">Yahoo Shoppingで実価格が取れた商品なし</div>
+      <div style="margin-bottom:16px">Yahoo Shopping APIで価格を確認できた商品のみ表示しています。カテゴリや価格帯を変えて再検索してみてください</div>
       <button class="btn" style="max-width:280px;margin:0 auto" onclick="resetAndSearch()">条件リセットして再検索</button>
     </div>`;
     return;
   }
   const hasEst = results.some(r=>!r.rakutenIsReal);
   document.getElementById('noticeArea').innerHTML = hasEst
-    ? `<div class="notice"><strong>⚠️ <span class="badge-est">推定</span> の楽天価格はAmazon×80%の推定値です。</strong> 仕入れ前に楽天サイトで実価格を必ず確認してください。</div>`
-    : `<div class="notice"><strong>✅ 全商品の楽天価格を楽天APIで取得しました。</strong> タイトルマッチのため、商品ページで確認してください。</div>`;
+    ? `<div class="notice"><strong>⚠️ <span class="badge-est">推定</span> のYahoo Shopping価格はAmazon×80%の推定値です。</strong> 仕入れ前にYahoo Shoppingサイトで実価格を必ず確認してください。</div>`
+    : `<div class="notice"><strong>✅ 全商品のYahoo Shopping価格をYahoo Shopping APIで取得しました。</strong> タイトルマッチのため、商品ページで確認してください。</div>`;
 
   el.innerHTML = results.map(r => {
     const mw  = Math.min(Math.abs(r.margin)*2, 100);
@@ -560,7 +558,7 @@ function renderProducts(results) {
       <div class="pval amazon">¥${r.amazonPrice.toLocaleString()}</div>
     </div>
     <div class="price-tile" style="${r.rakutenUrl ? 'cursor:pointer' : ''}" onclick="${r.rakutenUrl ? `window.open('${r.rakutenUrl}','_blank')` : ''}">
-      <div class="plabel">楽天 仕入れ ${badge} ${shippingBadge} ${r.rakutenUrl ? '<span style="font-size:9px;color:var(--dim)">↗ 商品ページ</span>' : ''}</div>
+      <div class="plabel">Yahoo 仕入れ ${badge} ${shippingBadge} ${r.rakutenUrl ? '<span style="font-size:9px;color:var(--dim)">↗ 商品ページ</span>' : ''}</div>
       <div class="pval rakuten" style="${r.rakutenUrl ? 'text-decoration:underline;text-underline-offset:3px' : ''}">¥${r.rakutenPrice.toLocaleString()}</div>
     </div>
   </div>
@@ -609,7 +607,7 @@ async function startSearch() {
   const apiKey = document.getElementById('keepaKey').value.trim();
   if (!apiKey) { showError('Keepa APIキーを入力してください'); return; }
   const rakutenAppId = document.getElementById('rakutenAppId').value.trim();
-  if (!rakutenAppId) { showError('楽天アプリIDを入力してください（実価格取得に必須です）'); return; }
+  if (!rakutenAppId) { showError('Yahoo Shopping Client IDを入力してください（実価格取得に必須です）'); return; }
 
   localStorage.setItem('keepaKey', apiKey);
   if (rakutenAppId) localStorage.setItem('yahooAppId', rakutenAppId);
